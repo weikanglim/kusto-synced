@@ -1,0 +1,6 @@
+// Averaged values by hourly
+let HourlyMetric = (startTime: datetime, endTime: datetime) {
+    Metric
+    | where Timestamp between(startTime..endTime)
+    | summarize avg(Value) by bin(Timestamp, 1h)
+}
