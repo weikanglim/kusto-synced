@@ -1,0 +1,2 @@
+// Trace messages.
+let Trace = datatable (['foo']:string) []

@@ -1,0 +1,4 @@
+.create-or-alter function with (folder = "TopLevel", docstring = "Displays \"top-N\" trace results") TopNTrace(limitNumber: int) {
+    Trace
+    | limit limitNumber
+}

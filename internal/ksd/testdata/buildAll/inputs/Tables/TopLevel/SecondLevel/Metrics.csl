@@ -1,0 +1,5 @@
+// Metrics.
+let Metrics = datatable (
+    ['Timestamp']:datetime,
+    ['Value']:int)
+[]
