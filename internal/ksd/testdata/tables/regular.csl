@@ -1,0 +1,6 @@
+// Metrics table
+let Metrics = datatable (
+    ['Timestamp']:datetime,
+    ['Value']:int,
+    ['Dimensions']:dynamic)
+[]

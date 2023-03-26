@@ -1,99 +1,57 @@
 package ksd
 
 import (
-	"bytes"
 	"embed"
-	"io"
-	"io/fs"
-	"os"
+	"fmt"
 	"path/filepath"
+	"strings"
 	"testing"
 
+	"github.com/bradleyjkemp/cupaloy/v2"
 	"github.com/stretchr/testify/require"
 )
 
-// go:embed testdata/build/*
-var buildData embed.FS
+//go:embed testdata/*
+var testData embed.FS
 
-func Test_build(t *testing.T) {
-	_ = buildData
-	type args struct {
-		reader io.ReadSeeker
-		folder string
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantWriter string
-		wantErr    bool
-	}{
-		// TODO: Add test cases.
-		{
-			name:       "function",
-			args:       args{},
-			wantWriter: "",
-			wantErr:    false,
-		},
-		{
-			name:       "table",
-			args:       args{},
-			wantWriter: "",
-			wantErr:    false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			writer := &bytes.Buffer{}
-			if err := build(tt.args.reader, writer, tt.args.folder); (err != nil) != tt.wantErr {
-				t.Errorf("build() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if gotWriter := writer.String(); gotWriter != tt.wantWriter {
-				t.Errorf("build() = %v, want %v", gotWriter, tt.wantWriter)
-			}
-		})
-	}
+func snapshotter() *cupaloy.Config {
+	return cupaloy.New(
+		cupaloy.UseStringerMethods(false),
+		cupaloy.EnvVariableName("UPDATE"))
 }
 
-func TestBuild(t *testing.T) {
-	// if err := Build(tt.args.srcRoot, tt.args.outRoot); (err != nil) != tt.wantErr {
-	// 	t.Errorf("Build() error = %v, wantErr %v", err, tt.wantErr)
-	// }
-	dataDir := "testdata/buildAll"
-	inDir := filepath.Join(dataDir, "inputs")
-	expectDir := filepath.Join(dataDir, "outputs")
+func Test_build(t *testing.T) {
+	test(t, "testdata/functions", "fn")
+	test(t, "testdata/tables", "tb")
+}
 
-	temp := t.TempDir()
-	err := Build(
-		inDir,
-		temp)
+func test(t *testing.T, root string, prefix string) {
+	ent, err := testData.ReadDir(root)
 	require.NoError(t, err)
-	err = filepath.WalkDir(expectDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
+	snapshotter := snapshotter()
+
+	for _, e := range ent {
+		if e.IsDir() {
+			continue
 		}
 
-		rel, err := filepath.Rel(expectDir, path)
-		require.NoError(t, err)
+		e := e
+		t.Run(e.Name(), func(t *testing.T) {
+			bytes, err := testData.ReadFile(filepath.Join(root, e.Name()))
+			require.NoError(t, err)
+			reader := strings.NewReader(string(bytes))
 
-		out := filepath.Join(temp, rel)
-		exp := filepath.Join(expectDir, rel)
-		if d.IsDir() {
-			require.DirExists(t, out)
-			return nil
-		}
+			decl, err := parse(reader)
+			require.NoError(t, err, "parse error")
 
-		require.FileExists(t, out)
-		actual, err := os.ReadFile(out)
-		require.NoError(t, err)
+			b := &strings.Builder{}
+			err = write(b, decl, filepath.Dir(root))
+			require.NoError(t, err, "write error")
 
-		require.FileExists(t, exp)
-		expected, err := os.ReadFile(exp)
-		require.NoError(t, err)
-
-		require.Equal(t, string(expected), string(actual))
-		return nil
-	})
-
-	require.NoError(t, err)
+			err = snapshotter.SnapshotWithName(
+				fmt.Sprintf("%s-%s", prefix, e.Name()),
+				b.String())
+			require.NoError(t, err)
+		})
+	}
 }

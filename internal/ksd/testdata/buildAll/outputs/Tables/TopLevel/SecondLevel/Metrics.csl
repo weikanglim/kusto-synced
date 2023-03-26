@@ -1,4 +1,0 @@
-.create-merge table Metrics(
-    ['Timestamp']:datetime,
-    ['Value']:int)
-with (docstring = "Metrics.", folder = "TopLevel/SecondLevel")

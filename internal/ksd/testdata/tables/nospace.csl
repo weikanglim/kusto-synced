@@ -1,0 +1,2 @@
+// A one-liner table declaration with minimal spacing
+let Oneline=datatable(['foo']:string)[]

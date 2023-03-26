@@ -1,0 +1,1 @@
+.create-or-alter function with (folder="",docstring="oneliner") oneline (){print("hello, world!")}

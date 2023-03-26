@@ -1,0 +1,4 @@
+// A simple function
+let Simple=(s:string){
+print("hello, world!")
+}

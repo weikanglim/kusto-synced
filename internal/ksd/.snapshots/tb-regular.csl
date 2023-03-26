@@ -1,0 +1,5 @@
+.create-merge table Metrics(
+    ['Timestamp']:datetime,
+    ['Value']:int,
+    ['Dimensions']:dynamic) (folder="",docstring="Metrics table")
+

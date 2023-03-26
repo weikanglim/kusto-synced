@@ -1,5 +1,0 @@
-.create-or-alter function with (folder = "TopLevel/SecondLevel", docstring = "Averaged values by hourly") HourlyMetric(startTime: datetime, endTime: datetime) {
-    Metric
-    | where Timestamp between(startTime..endTime)
-    | summarize avg(Value) by bin(Timestamp, 1h)
-}

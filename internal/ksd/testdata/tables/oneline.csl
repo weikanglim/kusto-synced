@@ -1,0 +1,2 @@
+// A one-liner table declaration
+let Oneline = datatable (['foo']:string) []

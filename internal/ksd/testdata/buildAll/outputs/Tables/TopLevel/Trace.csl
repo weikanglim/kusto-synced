@@ -1,4 +1,0 @@
-.create-merge table Trace(
-    ['Timestamp']:datetime,
-    ['Messsage']:string)
-with (docstring = "Trace messages.", folder = "TopLevel")

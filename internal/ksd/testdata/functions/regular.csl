@@ -1,0 +1,16 @@
+// Some comment that isn't part of the docstring
+
+// A regular-looking function.
+// This function looks for requests that occurred within a
+// time window, and with a message matching the desired regex.
+let FindRequests = (
+    start:datetime = datetime(1990-01-01 00:00:00.0),
+    end:datetime = datetime(2154-12-31 00:00:00.0),
+    matchRegex:string = '^(\s+){abc}(\s+)$',
+    a:dynamic = {b:datetime(2154-12-31 00:00:00.0)}
+    ) {
+    Requests
+    | where Timestamp between(start..end)
+    | where message matches regex matchRegex
+    | limit 100
+}

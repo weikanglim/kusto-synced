@@ -22,6 +22,8 @@ type declaration struct {
 	body string
 	// the type of declaration
 	declType declType
+	// doc
+	doc string
 
 	// only used while parsing
 	parseState int
@@ -74,6 +76,11 @@ func Build(srcRoot string, outRoot string) error {
 		}
 		defer reader.Close()
 
+		decl, err := parse(reader)
+		if err != nil {
+			return fmt.Errorf("parsing file %s: %w", rel, err)
+		}
+
 		writer, err := os.Create(outFile)
 		if err != nil {
 			return fmt.Errorf("creating out file: %w", err)
@@ -85,9 +92,9 @@ func Build(srcRoot string, outRoot string) error {
 			return nil
 		}()
 
-		err = build(reader, writer, filepath.Dir(rel))
+		err = write(writer, decl, filepath.Dir(rel))
 		if err != nil {
-			return fmt.Errorf("building file %s: %w", rel, err)
+			return fmt.Errorf("writing out file %s: %w", rel, err)
 		}
 
 		return nil
@@ -100,7 +107,7 @@ type lexer struct {
 	tokenBuf strings.Builder
 
 	err error
-	row int64
+	row int
 	col int
 }
 
@@ -115,9 +122,11 @@ func newLexer(reader *bufio.Reader) *lexer {
 // the line, including newline character, is saved to tokenBuf.
 func (l *lexer) readLine() (hasMore bool) {
 	line, err := l.r.ReadString('\n')
-	if err == io.EOF {
+	if line == "" && err == io.EOF {
 		return false
-	} else if err != nil {
+	}
+
+	if err != io.EOF && err != nil {
 		l.err = err
 		return false
 	}
@@ -340,7 +349,7 @@ func (l *lexer) readSpacedFunc(f delimFunc) (hasMore bool) {
 }
 
 type ParseError struct {
-	row int64
+	row int
 	col int
 	msg string
 }
@@ -357,22 +366,24 @@ func (l *lexer) Errorf(m string, args ...any) error {
 	}
 }
 
-func build(reader io.ReadSeeker, writer io.Writer, folder string) error {
+func parse(reader io.ReadSeeker) (*declaration, error) {
 	lexer := newLexer(bufio.NewReader(reader))
 	letFound := false
 	comments := make([]string, 0, 20)
+	offset := int64(0)
 	for lexer.consumeLine() {
 		line := lexer.token
-		if strings.HasPrefix(strings.TrimSpace(line), "let") {
+		if strings.HasPrefix(strings.TrimLeftFunc(line, unicode.IsSpace), "let") {
 			letFound = true
 			break
 		}
 
 		comments = append(comments, line)
+		offset += int64(len(line))
 	}
 
 	if !letFound {
-		return fmt.Errorf("missing 'let' statement")
+		return nil, lexer.Errorf("parsing file: missing 'let' statement in file")
 	}
 
 	start := len(comments) - 1
@@ -393,28 +404,22 @@ func build(reader io.ReadSeeker, writer io.Writer, folder string) error {
 		docstring = docs.String()[:docs.Len()-1]
 	}
 
-	_, err := reader.Seek(lexer.row-1, io.SeekStart)
+	_, err := reader.Seek(offset, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("seeking file: %w", err)
+		return nil, fmt.Errorf("seeking file: %w", err)
 	}
 	lexer.row -= 1
 	lexer.col = 0
 	lexer.r.Reset(reader)
+	lexer.token = ""
 	lexer.tokenBuf.Reset()
-	lexer.consumeLine()
 
-	decl := &declaration{}
+	decl := &declaration{doc: docstring}
 	err = parseDeclaration(lexer, decl)
 	if err != nil {
-		return fmt.Errorf("parsing declaration: %w", err)
+		return nil, fmt.Errorf("parsing declaration: %w", err)
 	}
-
-	// write the transpiled version
-	err = write(writer, docstring, decl, folder)
-	if err != nil {
-		return fmt.Errorf("writing out file: %w", err)
-	}
-	return nil
+	return decl, nil
 }
 
 func parseDeclaration(
@@ -433,28 +438,40 @@ func parseDeclaration(
 			if lex.token != "let" {
 				return lex.Errorf("expected 'let' statement, found %s", lex.token)
 			}
-		case 1: // \s+name
+		case 1: // \s+name\s*'='
 			lex.skipSpace()
-			if !lex.consumeToken() {
-				if lex.err != nil {
-					return lex.err
-				}
-				return lex.Errorf("incomplete 'let' statement, expected identfier")
-			}
-			decl.name = lex.token
-			log.Printf("name: %s", decl.name)
-		case 2: // \s*'='
-			lex.consumeSpaced('=')
-			if lex.err == errNonDelimWhitespaceFound {
-				return lex.Errorf("expected '=' after identifier. example: 'let %s ='", decl.name)
-			} else if lex.err != nil {
+			lex.consumeTill('=')
+			if lex.err != nil {
 				return lex.err
 			}
 
-			if lex.token != "=" {
-				return lex.Errorf("expected variable assignment '=', i.e. 'let %s ='", decl.name)
+			if !strings.HasSuffix(lex.token, "=") {
+				return lex.Errorf("expected variable assignment '=' after identifier")
 			}
-		case 3: // \s*[datatable]\s*({signature})
+
+			// letters, digits, underscores (_), spaces, dots (.), and dashes (-).
+			// Identifiers consisting only of letters, digits, and underscores don't require quoting when the identifier is being referenced.
+			//Identifiers containing at least one of (spaces, dots, or dashes) do require quoting (see below).
+			isIdentifier := func(r rune) bool {
+				return unicode.IsLetter(r) ||
+					unicode.IsDigit(r) ||
+					r == '_'
+			}
+			var name strings.Builder
+			for _, v := range lex.token[:len(lex.token)-1] {
+				if isIdentifier(v) {
+					name.WriteRune(v)
+					continue
+				}
+
+				if !unicode.IsSpace(v) {
+					return lex.Errorf("unexpected character '%s'", string(v))
+				}
+			}
+
+			decl.name = name.String()
+			log.Printf("name: %s", decl.name)
+		case 2: // \s*[datatable]\s*({signature})
 			found := lex.readSpacedFunc(func(s rune) bool {
 				return string(s) == "d" || string(s) == "("
 			})
@@ -492,6 +509,18 @@ func parseDeclaration(
 				}
 			case "(":
 				decl.declType = functionType
+				// we currently do not parse the signature due to language complications,
+				// instead, everything is allowed through
+				// and stored as the body of the function.
+				for lex.readLine() {
+				}
+				if lex.err != nil {
+					return lex.err
+				}
+
+				lex.consumeToken()
+				decl.body = lex.token
+				return nil
 			}
 
 			found = lex.consumeTill(')')
@@ -502,27 +531,10 @@ func parseDeclaration(
 			}
 
 			decl.signature = lex.token
-		// Function: \s*{<body>}
+			log.Printf("signature: %s", decl.signature)
 		// Table: \s*[\s*]
-		case 4:
+		case 3:
 			switch decl.declType {
-			case functionType:
-				found := lex.readSpaced('{')
-				if lex.err == errNonDelimWhitespaceFound {
-					return lex.Errorf("unexpected character found. expected '{' for beginning of function body")
-				} else if lex.err != nil {
-					return lex.err
-				} else if !found {
-					return lex.Errorf("expected '{' for beginning of function body")
-				}
-
-				found = lex.consumeTill('}')
-				if lex.err != nil {
-					return lex.err
-				} else if !found {
-					return lex.Errorf("unmatched braces, missing '}' for end of function body")
-				}
-				decl.body = lex.token
 			case tableType:
 				found := lex.readSpaced('[')
 				if lex.err == errNonDelimWhitespaceFound {
@@ -561,7 +573,6 @@ func parseDeclaration(
 
 func write(
 	writer io.Writer,
-	doc string,
 	decl *declaration,
 	folder string) error {
 	var err error
@@ -569,13 +580,13 @@ func write(
 	case functionType:
 		_, err = writer.Write([]byte(
 			fmt.Sprintf(
-				".create-or-alter function with (folder=\"%s\",docstring=\"%s\") %s %s\n",
-				folder, doc, decl.name, decl.signature)))
+				".create-or-alter function with (folder=\"%s\",docstring=\"%s\") %s%s ",
+				folder, decl.doc, decl.name, decl.signature)))
 	case tableType:
 		_, err = writer.Write([]byte(
 			fmt.Sprintf(
 				".create-merge table %s%s (folder=\"%s\",docstring=\"%s\")\n",
-				decl.name, decl.signature, folder, doc)))
+				decl.name, decl.signature, folder, decl.doc)))
 	default:
 		panic(fmt.Sprintf("unhandled declarationType: %d", decl.declType))
 	}
