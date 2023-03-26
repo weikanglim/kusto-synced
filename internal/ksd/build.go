@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode"
 )
 
 type declaration struct {
@@ -92,12 +93,191 @@ func Build(srcRoot string, outRoot string) error {
 	})
 }
 
+type lexer struct {
+	r        *bufio.Reader
+	token    string
+	tokenBuf strings.Builder
+
+	err error
+	row int
+	col int
+}
+
+func newLexer(reader *bufio.Reader) *lexer {
+	return &lexer{
+		r: reader,
+	}
+}
+
+// advances the cursor to past the newline character.
+// the line is saved in token, including newline character.
+func (l *lexer) readLine() (hasMore bool) {
+	line, err := l.r.ReadString('\n')
+	if err == io.EOF {
+		return false
+	} else if err != nil {
+		l.err = err
+		return false
+	}
+
+	l.row += 1
+	l.col = 0
+	l.token = line
+	l.tokenBuf.Reset()
+	return true
+}
+
+// advances the cursor to the first non-space character.
+//
+// whitespace is discarded.
+// the first non-space character is saved into the tokenBuf.
+func (l *lexer) skipSpace() (hasMore bool) {
+	for {
+		r, _, err := l.r.ReadRune()
+		if err == io.EOF {
+			return false
+		} else if err != nil {
+			l.err = err
+			return false
+		}
+
+		if r == '\n' {
+			l.row += 1
+			l.col = 1
+		} else {
+			l.col += 1
+		}
+
+		if !unicode.IsSpace(r) {
+			_, err := l.tokenBuf.WriteRune(r)
+			if err != nil {
+				l.err = err
+				return false
+			}
+
+			break
+		}
+	}
+
+	return true
+}
+
+// advances the cursor to the first space character.
+// the tokenBuf is consumed as token, and tokenBuf is reset.
+func (l *lexer) consumeToken() (hasMore bool) {
+	more := l.readToken()
+
+	if l.tokenBuf.Len() > 0 {
+		l.token = l.tokenBuf.String()
+		l.tokenBuf.Reset()
+	}
+
+	return more
+}
+
+// advances the cursor to the first space character.
+// the character is written to tokenBuf.
+func (l *lexer) readToken() (hasMore bool) {
+	for {
+		r, _, err := l.r.ReadRune()
+		if err == io.EOF {
+			return false
+		} else if err != nil {
+			l.err = err
+			return false
+		}
+
+		if r == '\n' {
+			l.row += 1
+			l.col = 1
+		} else {
+			l.col += 1
+		}
+
+		if unicode.IsSpace(r) {
+			break
+		}
+
+		_, err = l.tokenBuf.WriteRune(r)
+		if err != nil {
+			l.err = err
+			return false
+		}
+	}
+
+	return true
+}
+
+// advances the cursor to the first occurence of delim byte.
+//
+// the presence of the delim byte inside a quoted string,
+// single-quote or double-quote, is considered an escape
+// character and is ignored.
+//
+// all bytes read (including whitespace and delim) are saved to
+// token, and the tokenBuf is cleared.
+func (l *lexer) readTo(s byte) (hasMore bool) {
+	inString := false
+	for {
+		r, _, err := l.r.ReadRune()
+		if err == io.EOF {
+			return false
+		} else if err != nil {
+			l.err = err
+			return false
+		}
+
+		if r == '\n' {
+			l.row += 1
+			l.col = 1
+		} else {
+			l.col += 1
+		}
+
+		if r == '\'' || r == '"' {
+			inString = !inString
+		}
+
+		_, err = l.tokenBuf.WriteRune(r)
+		if err != nil {
+			l.err = err
+			return false
+		}
+
+		if !inString && byte(r) == s {
+			break
+		}
+	}
+
+	l.token = l.tokenBuf.String()
+	l.tokenBuf.Reset()
+	return true
+}
+
+type ParseError struct {
+	row int
+	col int
+	msg string
+}
+
+func (e *ParseError) Error() string {
+	return fmt.Sprintf("[%d,%d] %s", e.row, e.col, e.msg)
+}
+
+func (l *lexer) Errorf(m string, args ...any) error {
+	return &ParseError{
+		row: l.row,
+		col: l.col,
+		msg: fmt.Sprintf(m, args...),
+	}
+}
+
 func build(reader io.Reader, writer io.Writer, folder string) error {
-	scanner := bufio.NewScanner(reader)
+	lexer := newLexer(bufio.NewReader(reader))
 	letFound := false
 	comments := make([]string, 0, 20)
-	for scanner.Scan() {
-		line := scanner.Text()
+	for lexer.readLine() {
+		line := lexer.token
 		if strings.HasPrefix(strings.TrimSpace(line), "let") {
 			letFound = true
 			break
@@ -129,19 +309,20 @@ func build(reader io.Reader, writer io.Writer, folder string) error {
 	}
 
 	// first scan leftover words from Text()
-	lineScanner := bufio.NewScanner(strings.NewReader(scanner.Text()))
-	lineScanner.Split(bufio.ScanWords)
+	lineLexer := newLexer(bufio.NewReaderSize(strings.NewReader(lexer.token), len(lexer.token)))
+	lineLexer.col = lexer.col
+	lineLexer.row = lexer.row
 	decl := &declaration{}
 	// parse from remaining line
-	err := parseDeclaration(lineScanner, reader, decl)
+	err := parseDeclaration(lineLexer, decl)
 	if err != nil {
 		return fmt.Errorf("parsing declaration: %w", err)
 	}
 
 	// parse from remaining text
-	scanner = bufio.NewScanner(reader)
-	scanner.Split(bufio.ScanWords)
-	err = parseDeclaration(scanner, reader, decl)
+	lexer.col = lineLexer.col
+	lexer.row = lineLexer.row
+	err = parseDeclaration(lexer, decl)
 	if err != nil {
 		return fmt.Errorf("parsing declaration: %w", err)
 	}
@@ -155,123 +336,148 @@ func build(reader io.Reader, writer io.Writer, folder string) error {
 }
 
 func parseDeclaration(
-	scanner *bufio.Scanner,
-	underlyingReader io.Reader,
+	lex *lexer,
 	decl *declaration) error {
 	// We parse two kinds of declaration:
 	// functions:
 	// let \s+ {name} \s+ = \s+ ({signature}) \s+ {
 	// tables:
 	// let \s+ {name} \s+ = \s+ datatable \s+ ({signature}) \s+ {
-	for scanner.Scan() {
+	for {
 		switch decl.parseState {
 		case 0: // let
-			if scanner.Text() != "let" {
-				return fmt.Errorf("let statement not found in '%s'", scanner.Text())
+			// skip any empty space
+			if !lex.skipSpace() {
+				return lex.Errorf("missing 'let' statement")
+			}
+			lex.consumeToken()
+			if lex.token != "let" {
+				return fmt.Errorf("expected 'let' statement")
 			}
 		case 1: // name
-			decl.name = scanner.Text()
+			lex.skipSpace()
+			if !lex.consumeToken() {
+				if lex.err != nil {
+					return lex.err
+				}
+				return lex.Errorf("incomplete 'let' statement")
+			}
+			decl.name = lex.token
+			log.Printf("name: %s", decl.signature)
 		case 2: // '='
-			if scanner.Text() != "=" {
-				return fmt.Errorf("expected '=' after 'let' statement, i.e. let myFunc = (arg1:string){}")
+			lex.skipSpace()
+			if lex.err != nil {
+				return lex.err
+			}
+
+			lex.consumeToken()
+			if lex.token != "=" {
+				return lex.Errorf("expected variable assignment '=', i.e. 'let %s ='", decl.name)
 			}
 		case 3: // [datatable] ({signature})
-			if scanner.Text() == "datatable" {
+			lex.skipSpace()
+			lex.readToken() // read, but don't consume
+			if lex.err != nil {
+				return lex.err
+			}
+
+			if lex.token == "datatable" {
 				decl.declType = tableType
-				// now, scan to next "(" token so datatable and functions
-				// are at the same location
-				scanner.Scan()
-				if scanner.Err() != nil {
-					return scanner.Err()
+				// now, read to next '(' token
+				lex.skipSpace()
+				if lex.err != nil {
+					return lex.err
 				}
 			}
 
-			if !strings.HasPrefix(scanner.Text(), "(") {
-				switch decl.declType {
-				case functionType:
-					return fmt.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
-				case tableType:
-					return fmt.Errorf("expected '(' after 'datatable' in let statement, i.e. let myTable = datatable (['foo']:string) []")
-				}
+			err := parseSignature(lex, decl)
+			if err != nil {
+				return err
 			}
-
-			decl.signature = scanner.Text()
-			log.Printf("signature start: %s", decl.signature)
-			// scan until next ')' character
-			pscanner := bufio.NewScanner(underlyingReader)
-			pscanner.Split(scanParenthesisEnd)
-			if !pscanner.Scan() {
-				if pscanner.Err() != nil {
-					return pscanner.Err()
-				}
-				return fmt.Errorf("unclosed parenthesis, closing ')' not found in let statement")
-			}
-			if pscanner.Err() != nil {
-				return pscanner.Err()
-			}
-
-			decl.signature += pscanner.Text()
-			log.Printf("signature end: %s", decl.signature)
+			log.Printf("signature: %s", decl.signature)
 		case 4: // for function '{<char', for table: '[ ]' and done
+			lex.skipSpace()
+			lex.consumeToken()
+			if lex.err != nil {
+				return lex.err
+			}
+
 			switch decl.declType {
 			case functionType:
-				if !strings.HasPrefix(scanner.Text(), "{") {
-					return fmt.Errorf("missing block declaration '{' after method signature in let statement, i.e. let myFunc = (arg1:string) { Table1 | limit 10 }")
+				if !strings.HasPrefix(lex.token, "{") {
+					return lex.Errorf("missing block declaration '{' after method signature in let statement, i.e. let myFunc = (arg1:string) { Table1 | limit 10 }")
 				}
-				decl.body = scanner.Text()
 			case tableType:
 				// for table, we will parse remaining text and return.
-				if !strings.HasPrefix(scanner.Text(), "[") {
-					return fmt.Errorf("missing block declaration '[' after method signature in let statement, i.e. let myTable = datatable (['foo']:string) []")
+				if !strings.HasPrefix(lex.token, "[") {
+					return lex.Errorf("missing block declaration '[' after method signature in let statement, i.e. let myTable = datatable (['foo']:string) []")
 				}
 
-				if strings.HasSuffix(scanner.Text(), "]") {
+				if strings.HasSuffix(lex.token, "]") {
 					// recommended, single "[]"
 					return nil
 				}
 
-				wscanner := bufio.NewScanner(underlyingReader)
-				wscanner.Split(scanParenthesisEnd)
-				has := wscanner.Scan()
-				if !has {
-					return fmt.Errorf("unclosed brackets, closing ']' not found in body declaration")
+				lex.readTo(']')
+				if lex.err != nil {
+					return lex.err
+				}
+				if !strings.HasSuffix(lex.token, "]") {
+					return lex.Errorf("unclosed brackets, closing ']' not found in body declaration")
 				}
 
-				if wscanner.Text() == "]" {
-					// recommended, "[ ]"
-					return nil
-				} else if !strings.HasSuffix(wscanner.Text(), "]") {
-					return fmt.Errorf("unclosed brackets, closing ']' not found in body declaration")
+				for i, v := range lex.token {
+					if v != '[' && v != ']' && !unicode.IsSpace(v) {
+						fmt.Printf("WARNING: Syncing data within datatable syntax is not currently supported. The following contents will be ignored:\n%s", lex.token[i:len(lex.token)-1])
+						break
+					}
 				}
 
-				fmt.Printf("WARNING: Syncing data within datatable syntax is not currently supported. The following contents will be ignored:\n%s", scanner.Text()[:len(scanner.Text())-1])
 				return nil
 			default:
 				panic(fmt.Sprintf("unsupported decl type: %d", decl.declType))
 			}
-			scanner = bufio.NewScanner(underlyingReader)
-			scanner.Split(bufio.ScanLines)
 		default:
 			switch decl.declType {
 			case functionType:
 				var sb strings.Builder
-				sb.WriteString(decl.body)
-				sb.WriteString("\n")
-				sb.WriteString(scanner.Text())
-
-				for scanner.Scan() {
-					sb.WriteString(scanner.Text())
-					sb.WriteString("\n")
+				sb.WriteString("{")
+				for lex.readLine() {
+					sb.WriteString(lex.token)
 				}
 				decl.body = sb.String()
+				if !strings.HasSuffix(strings.TrimRightFunc(decl.body, unicode.IsSpace), "}") {
+					return lex.Errorf("missing closing brace '}' for function body")
+				}
 			}
 
-			return scanner.Err()
+			return lex.err
 		}
 		decl.parseState += 1
 	}
+}
 
-	return scanner.Err()
+func parseSignature(l *lexer, decl *declaration) error {
+	if !strings.HasPrefix(l.token, "(") {
+		switch decl.declType {
+		case functionType:
+			return fmt.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
+		case tableType:
+			return fmt.Errorf("expected '(' after 'datatable' in let statement, i.e. let myTable = datatable (['foo']:string) []")
+		}
+	}
+
+	l.readTo(')')
+	if l.err != nil {
+		return l.err
+	}
+
+	if !strings.HasSuffix(l.token, ")") {
+		return fmt.Errorf("unmatched parenthesis in method signature, missing closing ')'")
+	}
+
+	decl.signature = l.token
+	return nil
 }
 
 func write(
@@ -284,7 +490,7 @@ func write(
 	case functionType:
 		_, err = writer.Write([]byte(
 			fmt.Sprintf(
-				".create-or-alter function with (folder=\"%s\",docstring=\"%s\") %s%s\n",
+				".create-or-alter function with (folder=\"%s\",docstring=\"%s\") %s %s\n",
 				folder, doc, decl.name, decl.signature)))
 	case tableType:
 		_, err = writer.Write([]byte(
@@ -305,20 +511,4 @@ func write(
 	}
 
 	return nil
-}
-
-func scanParenthesisEnd(data []byte, atEOF bool) (advance int, token []byte, err error) {
-	start := 0
-	for ; start < len(data); start++ {
-		if data[start] == ')' {
-			return start + 1, data[:start+1], nil
-		}
-	}
-
-	if atEOF {
-		return len(data), nil, bufio.ErrFinalToken
-	}
-
-	// request more data
-	return 0, nil, nil
 }
