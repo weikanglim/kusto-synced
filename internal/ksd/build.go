@@ -273,7 +273,7 @@ var errNonDelimWhitespaceFound = errors.New("non-whitespace, non-delim char foun
 // if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
 //
 // the delim byte is saved into token, the tokenBuf is reset.
-func (l *lexer) consumeSpaced(s byte) (hasMore bool) {
+func (l *lexer) consumeSpaced(s rune) (hasMore bool) {
 	l.readSpaced(s)
 	l.token = l.tokenBuf.String()
 	l.tokenBuf.Reset()
@@ -286,7 +286,26 @@ func (l *lexer) consumeSpaced(s byte) (hasMore bool) {
 // if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
 //
 // the delim byte is saved into tokenBuf.
-func (l *lexer) readSpaced(s byte) (hasMore bool) {
+func (l *lexer) readSpaced(s rune) (hasMore bool) {
+	hasMore = l.readSpacedFunc(func(r rune) bool {
+		return r == s
+	})
+	return
+}
+
+// delimFunc is used in functions like readSpaceFunc
+// that returns true if the rune present is a
+// delimiter.
+type delimFunc func(s rune) bool
+
+// advances the cursor to one-past the first occurence of the delimiter
+// as specified by delimFunc.
+//
+// whitespace is ignored and discarded when advancing the cursor.
+// if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
+//
+// the delimiter is saved into tokenBuf.
+func (l *lexer) readSpacedFunc(f delimFunc) (hasMore bool) {
 	for {
 		r, _, err := l.r.ReadRune()
 		if err == io.EOF {
@@ -305,14 +324,16 @@ func (l *lexer) readSpaced(s byte) (hasMore bool) {
 
 		if unicode.IsSpace(r) {
 			continue
-		} else if byte(r) == s {
+		} else if f(r) {
 			_, err = l.tokenBuf.WriteRune(r)
 			if err != nil {
 				l.err = err
 				return false
 			}
+			return true
 		}
 
+		fmt.Printf("invalid character: %s\n", string(r))
 		l.err = errNonDelimWhitespaceFound
 		return false
 	}
@@ -388,9 +409,6 @@ func build(reader io.ReadSeeker, writer io.Writer, folder string) error {
 		return fmt.Errorf("parsing declaration: %w", err)
 	}
 
-	decl.body = lexer.tokenBuf.String()
-	lexer.tokenBuf.Reset()
-
 	// write the transpiled version
 	err = write(writer, docstring, decl, folder)
 	if err != nil {
@@ -427,7 +445,9 @@ func parseDeclaration(
 			log.Printf("name: %s", decl.name)
 		case 2: // \s*'='
 			lex.consumeSpaced('=')
-			if lex.err != nil {
+			if lex.err == errNonDelimWhitespaceFound {
+				return lex.Errorf("expected '=' after identifier. example: 'let %s ='", decl.name)
+			} else if lex.err != nil {
 				return lex.err
 			}
 
@@ -435,60 +455,89 @@ func parseDeclaration(
 				return lex.Errorf("expected variable assignment '=', i.e. 'let %s ='", decl.name)
 			}
 		case 3: // \s*[datatable]\s*({signature})
-			lex.consumeSpaced('d') // TODO: or '('
-			lex.readToken()        // read, but don't consume
+			found := lex.readSpacedFunc(func(s rune) bool {
+				return string(s) == "d" || string(s) == "("
+			})
+			if lex.err == errNonDelimWhitespaceFound {
+				return lex.Errorf("expected '(' for function declaration, or 'datatable' for table declaration")
+			} else if lex.err != nil {
+				return lex.err
+			} else if !found {
+				return lex.Errorf("expected '(' for function declaration, or 'datatable' for table declaration")
+			}
+
+			switch lex.tokenBuf.String() {
+			case "d":
+				decl.declType = tableType
+				lex.consumeTill('(')
+				if lex.err != nil {
+					return lex.err
+				}
+
+				if !strings.HasPrefix(lex.token, "datatable") {
+					return lex.Errorf("invalid keyword. expected 'datatable' for table declaration")
+				}
+
+				start := len("datatable")
+				for i, v := range lex.token[start : len(lex.token)-1] {
+					if !unicode.IsSpace(v) {
+						lex.col = lex.col + (i - len(lex.token))
+						return lex.Errorf("invalid character '%s'", string(v))
+					}
+				}
+
+				_, err := lex.tokenBuf.WriteString("(")
+				if err != nil {
+					return err
+				}
+			case "(":
+				decl.declType = functionType
+			}
+
+			found = lex.consumeTill(')')
 			if lex.err != nil {
 				return lex.err
+			} else if !found {
+				return lex.Errorf("unmatched parenthesis, missing ')' in declaration signature")
 			}
 
-			if lex.tokenBuf.String() == "datatable" {
-				decl.declType = tableType
-				lex.tokenBuf.Reset()
-				// now, read to next '(' token
-				lex.skipSpace()
-				if lex.err != nil {
-					return lex.err
-				}
-			}
-
-			err := parseSignature(lex, decl)
-			if err != nil {
-				return err
-			}
-			log.Printf("signature: %s", decl.signature)
-		case 4: // for function '{<body>', for table: '[ ]' and done
-			lex.skipSpace()
+			decl.signature = lex.token
+		// Function: \s*{<body>}
+		// Table: \s*[\s*]
+		case 4:
 			switch decl.declType {
 			case functionType:
-				lex.readToken()
+				found := lex.readSpaced('{')
+				if lex.err == errNonDelimWhitespaceFound {
+					return lex.Errorf("unexpected character found. expected '{' for beginning of function body")
+				} else if lex.err != nil {
+					return lex.err
+				} else if !found {
+					return lex.Errorf("expected '{' for beginning of function body")
+				}
+
+				found = lex.consumeTill('}')
 				if lex.err != nil {
 					return lex.err
+				} else if !found {
+					return lex.Errorf("unmatched braces, missing '}' for end of function body")
 				}
-				if !strings.HasPrefix(lex.tokenBuf.String(), "{") {
-					return lex.Errorf("missing block declaration '{' after method signature in let statement, i.e. let myFunc = (arg1:string) { Table1 | limit 10 }")
-				}
+				decl.body = lex.token
 			case tableType:
-				lex.consumeToken()
-				if lex.err != nil {
+				found := lex.readSpaced('[')
+				if lex.err == errNonDelimWhitespaceFound {
+					return lex.Errorf("unexpected character found. expected '[' for beginning of table body")
+				} else if lex.err != nil {
 					return lex.err
-				}
-				// for table, we will parse remaining text and return.
-				if !strings.HasPrefix(lex.token, "[") {
-					return lex.Errorf("missing block declaration '[' after method signature in let statement, i.e. let myTable = datatable (['foo']:string) []")
+				} else if !found {
+					return lex.Errorf("expected '(' for beginning of table body")
 				}
 
-				if strings.HasSuffix(lex.token, "]") {
-					// recommended, single "[]"
-					return nil
-				}
-
-				// parsing something that looks like: '[<space>]'
-				lex.consumeTill(']')
+				found = lex.consumeTill(']')
 				if lex.err != nil {
 					return lex.err
-				}
-				if !strings.HasSuffix(lex.token, "]") {
-					return lex.Errorf("unclosed brackets, closing ']' not found in body declaration")
+				} else if !found {
+					return lex.Errorf("unmatched brackets, missing ']' for end of table body")
 				}
 
 				for i, v := range lex.token {
@@ -498,48 +547,16 @@ func parseDeclaration(
 						break
 					}
 				}
-
+				decl.body = ""
 				return nil
 			default:
-				panic(fmt.Sprintf("unsupported decl type: %d", decl.declType))
+				panic(fmt.Sprintf("unsupported declaration type: %d", decl.declType))
 			}
 		default:
-			switch decl.declType {
-			case functionType:
-				for lex.readLine() {
-				}
-				if lex.err != nil {
-					return lex.err
-				}
-			}
-
 			return nil
 		}
 		decl.parseState += 1
 	}
-}
-
-func parseSignature(l *lexer, decl *declaration) error {
-	if !strings.HasPrefix(l.tokenBuf.String(), "(") {
-		switch decl.declType {
-		case functionType:
-			return l.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
-		case tableType:
-			return l.Errorf("expected '(' after 'datatable' in let statement, i.e. let myTable = datatable (['foo']:string) [], found: %s", l.tokenBuf.String())
-		}
-	}
-
-	l.consumeTill(')')
-	if l.err != nil {
-		return l.err
-	}
-
-	if !strings.HasSuffix(l.token, ")") {
-		return l.Errorf("unmatched parenthesis in method signature, missing closing ')'")
-	}
-
-	decl.signature = l.token
-	return nil
 }
 
 func write(
