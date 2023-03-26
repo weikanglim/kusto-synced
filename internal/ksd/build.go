@@ -2,6 +2,7 @@ package ksd
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -99,7 +100,7 @@ type lexer struct {
 	tokenBuf strings.Builder
 
 	err error
-	row int
+	row int64
 	col int
 }
 
@@ -218,7 +219,7 @@ func (l *lexer) readToken() (hasMore bool) {
 	return true
 }
 
-// advances the cursor to the first occurence of delim byte.
+// advances the cursor to one-past the first occurence of delim byte.
 //
 // the presence of the delim byte inside a quoted string,
 // single-quote or double-quote, is considered an escape
@@ -264,8 +265,61 @@ func (l *lexer) consumeTill(s byte) (hasMore bool) {
 	return true
 }
 
+var errNonDelimWhitespaceFound = errors.New("non-whitespace, non-delim char found")
+
+// advances the cursor to one-past the first occurence of delim byte.
+//
+// whitespace is ignored and discarded when advancing the cursor.
+// if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
+//
+// the delim byte is saved into token, the tokenBuf is reset.
+func (l *lexer) consumeSpaced(s byte) (hasMore bool) {
+	l.readSpaced(s)
+	l.token = l.tokenBuf.String()
+	l.tokenBuf.Reset()
+	return true
+}
+
+// advances the cursor to one-past the first occurence of delim byte.
+//
+// whitespace is ignored and discarded when advancing the cursor.
+// if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
+//
+// the delim byte is saved into tokenBuf.
+func (l *lexer) readSpaced(s byte) (hasMore bool) {
+	for {
+		r, _, err := l.r.ReadRune()
+		if err == io.EOF {
+			return false
+		} else if err != nil {
+			l.err = err
+			return false
+		}
+
+		if r == '\n' {
+			l.row += 1
+			l.col = 1
+		} else {
+			l.col += 1
+		}
+
+		if unicode.IsSpace(r) {
+			continue
+		} else if byte(r) == s {
+			_, err = l.tokenBuf.WriteRune(r)
+			if err != nil {
+				l.err = err
+				return false
+			}
+		}
+
+		l.err = errNonDelimWhitespaceFound
+		return false
+	}
+}
+
 type ParseError struct {
-	row int
+	row int64
 	col int
 	msg string
 }
@@ -282,7 +336,7 @@ func (l *lexer) Errorf(m string, args ...any) error {
 	}
 }
 
-func build(reader io.Reader, writer io.Writer, folder string) error {
+func build(reader io.ReadSeeker, writer io.Writer, folder string) error {
 	lexer := newLexer(bufio.NewReader(reader))
 	letFound := false
 	comments := make([]string, 0, 20)
@@ -318,20 +372,17 @@ func build(reader io.Reader, writer io.Writer, folder string) error {
 		docstring = docs.String()[:docs.Len()-1]
 	}
 
-	// first scan leftover words from Text()
-	lineLexer := newLexer(bufio.NewReaderSize(strings.NewReader(lexer.token), len(lexer.token)))
-	lineLexer.col = lexer.col
-	lineLexer.row = lexer.row
-	decl := &declaration{}
-	// parse from remaining line
-	err := parseDeclaration(lineLexer, decl)
+	_, err := reader.Seek(lexer.row-1, io.SeekStart)
 	if err != nil {
-		return fmt.Errorf("parsing declaration: %w", err)
+		return fmt.Errorf("seeking file: %w", err)
 	}
+	lexer.row -= 1
+	lexer.col = 0
+	lexer.r.Reset(reader)
+	lexer.tokenBuf.Reset()
+	lexer.consumeLine()
 
-	// parse from remaining file
-	lexer.col = lineLexer.col
-	lexer.row = lineLexer.row
+	decl := &declaration{}
 	err = parseDeclaration(lexer, decl)
 	if err != nil {
 		return fmt.Errorf("parsing declaration: %w", err)
@@ -353,19 +404,18 @@ func parseDeclaration(
 	decl *declaration) error {
 	// We parse two kinds of declaration:
 	// functions:
-	// let \s+ {name} \s+ = \s+ ({signature}) \s+ {
+	// let \s+ {name} \s*  = \s* ({signature}) \s* {
 	// tables:
-	// let \s+ {name} \s+ = \s+ datatable \s+ ({signature}) \s+ {
+	// let \s+ {name} \s*  = \s* datatable \s* ({signature}) \s+ {
 	for {
 		switch decl.parseState {
-		case 0: // let
-			// skip any empty space
+		case 0: // \s*let
 			lex.skipSpace()
 			lex.consumeToken()
 			if lex.token != "let" {
-				return lex.Errorf("expected 'let' statement")
+				return lex.Errorf("expected 'let' statement, found %s", lex.token)
 			}
-		case 1: // name
+		case 1: // \s+name
 			lex.skipSpace()
 			if !lex.consumeToken() {
 				if lex.err != nil {
@@ -375,29 +425,27 @@ func parseDeclaration(
 			}
 			decl.name = lex.token
 			log.Printf("name: %s", decl.name)
-		case 2: // '='
-			lex.skipSpace()
+		case 2: // \s*'='
+			lex.consumeSpaced('=')
 			if lex.err != nil {
 				return lex.err
 			}
 
-			lex.consumeToken()
 			if lex.token != "=" {
 				return lex.Errorf("expected variable assignment '=', i.e. 'let %s ='", decl.name)
 			}
-		case 3: // [datatable] ({signature})
-			lex.skipSpace()
-			lex.readToken() // read, but don't consume
+		case 3: // \s*[datatable]\s*({signature})
+			lex.consumeSpaced('d') // TODO: or '('
+			lex.readToken()        // read, but don't consume
 			if lex.err != nil {
 				return lex.err
 			}
 
 			if lex.tokenBuf.String() == "datatable" {
 				decl.declType = tableType
+				lex.tokenBuf.Reset()
 				// now, read to next '(' token
 				lex.skipSpace()
-				lex.tokenBuf.Reset()
-				lex.token = ""
 				if lex.err != nil {
 					return lex.err
 				}
@@ -475,9 +523,9 @@ func parseSignature(l *lexer, decl *declaration) error {
 	if !strings.HasPrefix(l.tokenBuf.String(), "(") {
 		switch decl.declType {
 		case functionType:
-			return fmt.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
+			return l.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
 		case tableType:
-			return fmt.Errorf("expected '(' after 'datatable' in let statement, i.e. let myTable = datatable (['foo']:string) []")
+			return l.Errorf("expected '(' after 'datatable' in let statement, i.e. let myTable = datatable (['foo']:string) [], found: %s", l.tokenBuf.String())
 		}
 	}
 
@@ -487,7 +535,7 @@ func parseSignature(l *lexer, decl *declaration) error {
 	}
 
 	if !strings.HasSuffix(l.token, ")") {
-		return fmt.Errorf("unmatched parenthesis in method signature, missing closing ')'")
+		return l.Errorf("unmatched parenthesis in method signature, missing closing ')'")
 	}
 
 	decl.signature = l.token
