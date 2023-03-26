@@ -110,7 +110,8 @@ func newLexer(reader *bufio.Reader) *lexer {
 }
 
 // advances the cursor to past the newline character.
-// the line is saved in token, including newline character.
+//
+// the line, including newline character, is saved to tokenBuf.
 func (l *lexer) readLine() (hasMore bool) {
 	line, err := l.r.ReadString('\n')
 	if err == io.EOF {
@@ -122,9 +123,18 @@ func (l *lexer) readLine() (hasMore bool) {
 
 	l.row += 1
 	l.col = 0
-	l.token = line
-	l.tokenBuf.Reset()
+	l.tokenBuf.WriteString(line)
 	return true
+}
+
+// advances the cursor to past the newline character.
+//
+// the tokenBuf is consumed as token, and tokenBuf is reset.
+func (l *lexer) consumeLine() (hasMore bool) {
+	hasMore = l.readLine()
+	l.token = l.tokenBuf.String()
+	l.tokenBuf.Reset()
+	return hasMore
 }
 
 // advances the cursor to the first non-space character.
@@ -216,7 +226,7 @@ func (l *lexer) readToken() (hasMore bool) {
 //
 // all bytes read (including whitespace and delim) are saved to
 // token, and the tokenBuf is cleared.
-func (l *lexer) readTo(s byte) (hasMore bool) {
+func (l *lexer) consumeTill(s byte) (hasMore bool) {
 	inString := false
 	for {
 		r, _, err := l.r.ReadRune()
@@ -276,7 +286,7 @@ func build(reader io.Reader, writer io.Writer, folder string) error {
 	lexer := newLexer(bufio.NewReader(reader))
 	letFound := false
 	comments := make([]string, 0, 20)
-	for lexer.readLine() {
+	for lexer.consumeLine() {
 		line := lexer.token
 		if strings.HasPrefix(strings.TrimSpace(line), "let") {
 			letFound = true
@@ -319,13 +329,16 @@ func build(reader io.Reader, writer io.Writer, folder string) error {
 		return fmt.Errorf("parsing declaration: %w", err)
 	}
 
-	// parse from remaining text
+	// parse from remaining file
 	lexer.col = lineLexer.col
 	lexer.row = lineLexer.row
 	err = parseDeclaration(lexer, decl)
 	if err != nil {
 		return fmt.Errorf("parsing declaration: %w", err)
 	}
+
+	decl.body = lexer.tokenBuf.String()
+	lexer.tokenBuf.Reset()
 
 	// write the transpiled version
 	err = write(writer, docstring, decl, folder)
@@ -347,12 +360,10 @@ func parseDeclaration(
 		switch decl.parseState {
 		case 0: // let
 			// skip any empty space
-			if !lex.skipSpace() {
-				return lex.Errorf("missing 'let' statement")
-			}
+			lex.skipSpace()
 			lex.consumeToken()
 			if lex.token != "let" {
-				return fmt.Errorf("expected 'let' statement")
+				return lex.Errorf("expected 'let' statement")
 			}
 		case 1: // name
 			lex.skipSpace()
@@ -360,10 +371,10 @@ func parseDeclaration(
 				if lex.err != nil {
 					return lex.err
 				}
-				return lex.Errorf("incomplete 'let' statement")
+				return lex.Errorf("incomplete 'let' statement, expected identfier")
 			}
 			decl.name = lex.token
-			log.Printf("name: %s", decl.signature)
+			log.Printf("name: %s", decl.name)
 		case 2: // '='
 			lex.skipSpace()
 			if lex.err != nil {
@@ -381,10 +392,12 @@ func parseDeclaration(
 				return lex.err
 			}
 
-			if lex.token == "datatable" {
+			if lex.tokenBuf.String() == "datatable" {
 				decl.declType = tableType
 				// now, read to next '(' token
 				lex.skipSpace()
+				lex.tokenBuf.Reset()
+				lex.token = ""
 				if lex.err != nil {
 					return lex.err
 				}
@@ -395,19 +408,22 @@ func parseDeclaration(
 				return err
 			}
 			log.Printf("signature: %s", decl.signature)
-		case 4: // for function '{<char', for table: '[ ]' and done
+		case 4: // for function '{<body>', for table: '[ ]' and done
 			lex.skipSpace()
-			lex.consumeToken()
-			if lex.err != nil {
-				return lex.err
-			}
-
 			switch decl.declType {
 			case functionType:
-				if !strings.HasPrefix(lex.token, "{") {
+				lex.readToken()
+				if lex.err != nil {
+					return lex.err
+				}
+				if !strings.HasPrefix(lex.tokenBuf.String(), "{") {
 					return lex.Errorf("missing block declaration '{' after method signature in let statement, i.e. let myFunc = (arg1:string) { Table1 | limit 10 }")
 				}
 			case tableType:
+				lex.consumeToken()
+				if lex.err != nil {
+					return lex.err
+				}
 				// for table, we will parse remaining text and return.
 				if !strings.HasPrefix(lex.token, "[") {
 					return lex.Errorf("missing block declaration '[' after method signature in let statement, i.e. let myTable = datatable (['foo']:string) []")
@@ -418,7 +434,8 @@ func parseDeclaration(
 					return nil
 				}
 
-				lex.readTo(']')
+				// parsing something that looks like: '[<space>]'
+				lex.consumeTill(']')
 				if lex.err != nil {
 					return lex.err
 				}
@@ -427,8 +444,9 @@ func parseDeclaration(
 				}
 
 				for i, v := range lex.token {
+					// a non-space character found inbetween brackets
 					if v != '[' && v != ']' && !unicode.IsSpace(v) {
-						fmt.Printf("WARNING: Syncing data within datatable syntax is not currently supported. The following contents will be ignored:\n%s", lex.token[i:len(lex.token)-1])
+						fmt.Printf("WARNING: Syncing data within datatable syntax is not currently supported. The following contents will be ignored:\n%s\n", lex.token[i:len(lex.token)-1])
 						break
 					}
 				}
@@ -440,25 +458,21 @@ func parseDeclaration(
 		default:
 			switch decl.declType {
 			case functionType:
-				var sb strings.Builder
-				sb.WriteString("{")
 				for lex.readLine() {
-					sb.WriteString(lex.token)
 				}
-				decl.body = sb.String()
-				if !strings.HasSuffix(strings.TrimRightFunc(decl.body, unicode.IsSpace), "}") {
-					return lex.Errorf("missing closing brace '}' for function body")
+				if lex.err != nil {
+					return lex.err
 				}
 			}
 
-			return lex.err
+			return nil
 		}
 		decl.parseState += 1
 	}
 }
 
 func parseSignature(l *lexer, decl *declaration) error {
-	if !strings.HasPrefix(l.token, "(") {
+	if !strings.HasPrefix(l.tokenBuf.String(), "(") {
 		switch decl.declType {
 		case functionType:
 			return fmt.Errorf("expected '(' after '=' in let statement, i.e. let myFunc = (arg1:string){}")
@@ -467,7 +481,7 @@ func parseSignature(l *lexer, decl *declaration) error {
 		}
 	}
 
-	l.readTo(')')
+	l.consumeTill(')')
 	if l.err != nil {
 		return l.err
 	}

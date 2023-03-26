@@ -18,7 +18,7 @@ var buildData embed.FS
 func Test_build(t *testing.T) {
 	_ = buildData
 	type args struct {
-		reader io.Reader
+		reader io.ReadSeeker
 		folder string
 	}
 	tests := []struct {
@@ -75,6 +75,7 @@ func TestBuild(t *testing.T) {
 
 		rel, err := filepath.Rel(expectDir, path)
 		require.NoError(t, err)
+
 		out := filepath.Join(temp, rel)
 		exp := filepath.Join(expectDir, rel)
 		if d.IsDir() {
