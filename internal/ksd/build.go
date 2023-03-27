@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -281,19 +280,6 @@ var errNonDelimWhitespaceFound = errors.New("non-whitespace, non-delim char foun
 // whitespace is ignored and discarded when advancing the cursor.
 // if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
 //
-// the delim byte is saved into token, the tokenBuf is reset.
-func (l *lexer) consumeSpaced(s rune) (hasMore bool) {
-	l.readSpaced(s)
-	l.token = l.tokenBuf.String()
-	l.tokenBuf.Reset()
-	return true
-}
-
-// advances the cursor to one-past the first occurence of delim byte.
-//
-// whitespace is ignored and discarded when advancing the cursor.
-// if non-whitespace, non-delim char is found, errNonDelimWhitespaceFound is returned.
-//
 // the delim byte is saved into tokenBuf.
 func (l *lexer) readSpaced(s rune) (hasMore bool) {
 	hasMore = l.readSpacedFunc(func(r rune) bool {
@@ -342,7 +328,6 @@ func (l *lexer) readSpacedFunc(f delimFunc) (hasMore bool) {
 			return true
 		}
 
-		fmt.Printf("invalid character: %s\n", string(r))
 		l.err = errNonDelimWhitespaceFound
 		return false
 	}
@@ -470,7 +455,6 @@ func parseDeclaration(
 			}
 
 			decl.name = name.String()
-			log.Printf("name: %s", decl.name)
 		case 2: // \s*[datatable]\s*({signature})
 			found := lex.readSpacedFunc(func(s rune) bool {
 				return string(s) == "d" || string(s) == "("
@@ -531,7 +515,6 @@ func parseDeclaration(
 			}
 
 			decl.signature = lex.token
-			log.Printf("signature: %s", decl.signature)
 		// Table: \s*[\s*]
 		case 3:
 			switch decl.declType {
@@ -542,7 +525,7 @@ func parseDeclaration(
 				} else if lex.err != nil {
 					return lex.err
 				} else if !found {
-					return lex.Errorf("expected '(' for beginning of table body")
+					return lex.Errorf("expected '[' for beginning of table body")
 				}
 
 				found = lex.consumeTill(']')
