@@ -45,7 +45,7 @@ func test(t *testing.T, root string, prefix string) {
 			require.NoError(t, err, "parse error")
 
 			b := &strings.Builder{}
-			err = write(b, decl, filepath.Dir(root))
+			err = write(b, decl, filepath.Base(root))
 			require.NoError(t, err, "write error")
 
 			err = snapshotter.SnapshotWithName(

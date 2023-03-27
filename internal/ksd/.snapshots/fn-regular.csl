@@ -1,4 +1,4 @@
-.create-or-alter function with (folder="",docstring="A regular-looking function. This function looks for requests that occurred within a time window, and with a message matching the desired regex.") FindRequests (
+.create-or-alter function with (folder="functions",docstring="A regular-looking function. This function looks for requests that occurred within a time window, and with a message matching the desired regex.") FindRequests (
     start:datetime = datetime(1990-01-01 00:00:00.0),
     end:datetime = datetime(2154-12-31 00:00:00.0),
     matchRegex:string = '^(\s+){abc}(\s+)$',

@@ -1,2 +1,2 @@
-.create-merge table Oneline(['foo']:string) (folder="",docstring="A one-liner table declaration with minimal spacing")
+.create-merge table Oneline(['foo']:string) (folder="tables",docstring="A one-liner table declaration with minimal spacing")
 
