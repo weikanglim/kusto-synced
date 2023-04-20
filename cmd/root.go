@@ -4,16 +4,21 @@ Copyright © 2023 Wei Lim
 package cmd
 
 import (
+	"io"
+	"log"
 	"os"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
 )
 
+var debug bool
+
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "ksd",
-	Short: "A tool that simplifies and accelerates development for Kusto.",
+	Use:          "ksd",
+	SilenceUsage: true,
+	Short:        "A tool that simplifies and accelerates development for Kusto.",
 	Long: heredoc.Doc(`
 		Kusto Synced (ksd) is a tool that simplifies and accelerates development for Kusto.
 			
@@ -29,6 +34,12 @@ var rootCmd = &cobra.Command{
 		# sync files under src/kusto directory
 		$ ksd sync src/kusto --cluster <cluster> --database <database> 
 		`),
+	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+		if !debug {
+			log.SetOutput(io.Discard)
+		}
+		return nil
+	},
 	// Uncomment the following line if your bare application
 	// has an action associated with it:
 	// Run: func(cmd *cobra.Command, args []string) { },
@@ -38,6 +49,8 @@ var rootCmd = &cobra.Command{
 // This is called by main.main(). It only needs to happen once to the rootCmd.
 func Execute() {
 	rootCmd.AddCommand(buildCmd)
+	rootCmd.AddCommand(syncCmd)
+
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)
@@ -53,5 +66,5 @@ func init() {
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
-	rootCmd.Flags().BoolP("debug", "", false, "Debug flag")
+	rootCmd.Flags().BoolVar(&debug, "debug", false, "Enable debug logging")
 }
