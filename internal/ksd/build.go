@@ -12,6 +12,10 @@ import (
 	"unicode"
 )
 
+func isKustoSourceFile(ext string) bool {
+	return ext == ".kql" || ext == ".csl" || ext == ".kusto"
+}
+
 type declaration struct {
 	// name of table or function
 	name string
@@ -45,6 +49,7 @@ const (
 // - .kusto
 func Build(srcRoot string, outRoot string) error {
 	srcRoot = filepath.Clean(srcRoot)
+	outRoot = filepath.Clean(outRoot)
 	return filepath.WalkDir(srcRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -54,8 +59,12 @@ func Build(srcRoot string, outRoot string) error {
 			return nil
 		}
 
+		if strings.HasPrefix(path, outRoot) {
+			return nil
+		}
+
 		ext := filepath.Ext(path)
-		if ext != ".kql" && ext != ".csl" && ext != ".kusto" {
+		if !isKustoSourceFile(ext) {
 			return nil
 		}
 
@@ -568,8 +577,8 @@ func write(
 	case tableType:
 		_, err = writer.Write([]byte(
 			fmt.Sprintf(
-				".create-merge table %s%s (folder=\"%s\",docstring=\"%s\")\n",
-				decl.name, decl.signature, folder, decl.doc)))
+				".create-merge table %s%s\n",
+				decl.name, decl.signature)))
 	default:
 		panic(fmt.Sprintf("unhandled declarationType: %d", decl.declType))
 	}

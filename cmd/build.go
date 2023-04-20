@@ -12,23 +12,29 @@ import (
 )
 
 var buildCmd = &cobra.Command{
-	Use:   "build",
-	Short: "Builds stored Kusto functions and tables into scripts suitable for deployment.",
+	Use:   "build <directory>",
+	Short: "Builds stored Kusto functions and tables into command files suitable for deployment.",
 	Args:  cobra.ExactArgs(1),
 	Long: heredoc.Doc(`
-		Build builds all Kusto file declarations under the current directory.
-		To build from a subdirectory, simply pass the path to the directory as an argument.
+		Build transpiles all Kusto declarative file declarations under the current directory,
+		into command files under the 'out' directory relative to the current directory.
+
+		To specify a subdirectory, simply pass the <directory> as an argument.
 
 	    Build does the following:
 		- Parses comments that decorate a Kusto function or table declaration as documentation.
-		- Transpiles function declarations in user-defined syntax to Stored Function declarations.`),
+		- Transpiles table and function declarations in user-defined syntax to command syntax that creates or alters the functions.`),
 	RunE: func(cmd *cobra.Command, args []string) error {
 		root, err := os.Getwd()
 		if err != nil {
 			return err
 		}
 		if len(args) == 1 {
-			root = filepath.Join(root, args[0])
+			if filepath.IsAbs(args[0]) {
+				root = args[0]
+			} else {
+				root = filepath.Join(root, args[0])
+			}
 		}
 
 		_, err = os.Stat(root)
@@ -39,14 +45,11 @@ var buildCmd = &cobra.Command{
 			return err
 		}
 
-		outRoot := filepath.Join(root, ".out")
+		outRoot := filepath.Join(root, "out")
 		if err := os.MkdirAll(outRoot, 0755); err != nil {
 			return err
 		}
 
 		return ksd.Build(root, outRoot)
 	},
-}
-
-func init() {
 }
