@@ -82,13 +82,15 @@ func newKustoClient(
 		// first, verify if azure default credential is available
 		credAvailable, err := verifyDefaultAzureCredential(cred)
 		if err != nil {
-			log.Printf("enabling interactive logon, default credential not available with error: %v", err)
+			log.Printf("auth: enabling interactive logon, default credential not available with error: %v", err)
 		}
 
 		if credAvailable {
+			log.Println("auth: using default credential")
 			connection.AuthorityId = cred.TenantId
 			connection = connection.WithDefaultAzureCredential()
 		} else {
+			log.Println("auth: using interactive logon")
 			connection = connection.WithInteractiveLogin(cred.TenantId)
 		}
 	}
