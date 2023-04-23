@@ -12,7 +12,10 @@ import (
 	"unicode"
 )
 
-func isKustoSourceFile(ext string) bool {
+// The default name of the output directory
+const OutDir = "kout"
+
+func IsKustoSourceFile(ext string) bool {
 	return ext == ".kql" || ext == ".csl" || ext == ".kusto"
 }
 
@@ -55,16 +58,21 @@ func Build(srcRoot string, outRoot string) error {
 			return err
 		}
 
-		if d.IsDir() {
-			return nil
-		}
-
+		// skip any file in specified outRoot
 		if strings.HasPrefix(path, outRoot) {
 			return nil
 		}
 
+		if d.IsDir() {
+			// skip any out directories
+			if d.Name() == OutDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+
 		ext := filepath.Ext(path)
-		if !isKustoSourceFile(ext) {
+		if !IsKustoSourceFile(ext) {
 			return nil
 		}
 

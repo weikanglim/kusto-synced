@@ -1,11 +1,17 @@
 /*
 Copyright © 2023 Wei Lim
-
 */
 package main
 
-import "ksd/cmd"
+import (
+	"ksd/cmd"
+	"os"
+)
 
 func main() {
-	cmd.Execute()
+	rootCmd := cmd.NewRootCmd()
+	err := rootCmd.Execute()
+	if err != nil {
+		os.Exit(1)
+	}
 }
