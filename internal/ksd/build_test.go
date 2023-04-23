@@ -21,7 +21,7 @@ func snapshotter() *cupaloy.Config {
 		cupaloy.EnvVariableName("UPDATE"))
 }
 
-func Test_build(t *testing.T) {
+func TestBuild_Snapshots(t *testing.T) {
 	test(t, "testdata/functions", "fn")
 	test(t, "testdata/tables", "tb")
 }
