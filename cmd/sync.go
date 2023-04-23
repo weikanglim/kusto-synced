@@ -63,6 +63,10 @@ func NewSyncCommand() *cobra.Command {
 				return err
 			}
 
+			if endpoint == "" {
+				return errors.New("missing `--endpoint`. Set this to a Azure Data Explorer database endpoint, i.e. https://samples.kusto.windows.net/MyDatabase")
+			}
+
 			credOptions := ksd.CredentialOptions{}
 			if clientId != "" {
 				if clientSecret == "" {
@@ -95,7 +99,7 @@ func NewSyncCommand() *cobra.Command {
 					outRoot = filepath.Join(root, fromOut)
 				}
 
-				if strings.HasSuffix(outRoot, ksd.OutDir) {
+				if !strings.HasSuffix(outRoot, ksd.OutDir) {
 					return fmt.Errorf(
 						"%s is an invalid out directory path. out directories are expected to be named '%s'",
 						fromOut,
