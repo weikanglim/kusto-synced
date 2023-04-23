@@ -154,7 +154,7 @@ func Sync(
 			conn.db,
 			query)
 		if err != nil {
-			return fmt.Errorf("executing file %s: %w", rel, err)
+			return fmt.Errorf("syncing file %s: %w", rel, err)
 		}
 		fmt.Printf("Synced %s\n", rel)
 
