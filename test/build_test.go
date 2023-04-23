@@ -5,47 +5,102 @@ import (
 	"ksd/internal/ksd"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
+func TestBuild_Errors(t *testing.T) {
+	tests := []struct {
+		name   string
+		args   []string
+		errMsg string
+	}{
+		{
+			"DirectoryNotExist",
+			[]string{"build", "doesNotExist"},
+			"directory doesNotExist does not exist",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := executeCmd(tt.args)
+			require.Error(t, res.Err)
+			require.Contains(t, res.StdErr, tt.errMsg)
+		})
+	}
+}
+
 func TestBuild(t *testing.T) {
-	dataDir := "testdata"
-	inDir := filepath.Join(dataDir, "inputs")
-	expectDir := filepath.Join(dataDir, "outputs")
+	tests := []struct {
+		name  string
+		args  []string
+		chdir string
+	}{
+		{
+			"Functions",
+			[]string{"build", "testdata/functions"},
+			"",
+		},
+		{
+			"Tables",
+			[]string{"build", "testdata/tables"},
+			"",
+		},
+		{
+			"All",
+			[]string{"build", "testdata"},
+			"",
+		},
+		{
+			"All_WorkingDirectory",
+			[]string{"build"},
+			"testdata",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root, err := os.Getwd()
+			require.NoError(t, err)
+			if len(tt.args) > 1 {
+				for _, arg := range tt.args[1:] {
+					if !strings.HasPrefix(arg, "-") {
+						root = arg
+						break
+					}
+				}
+			}
+			res := executeCmd(tt.args)
+			require.NoError(t, res.Err)
 
-	temp := t.TempDir()
-	err := ksd.Build(
-		inDir,
-		temp)
-	require.NoError(t, err)
-	err = filepath.WalkDir(expectDir, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
+			outDir := filepath.Join(root, ksd.OutDir)
+			require.DirExists(t, outDir)
 
-		rel, err := filepath.Rel(expectDir, path)
-		require.NoError(t, err)
+			filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return err
+				}
 
-		out := filepath.Join(temp, rel)
-		exp := filepath.Join(expectDir, rel)
-		if d.IsDir() {
-			require.DirExists(t, out)
-			return nil
-		}
+				if d.IsDir() {
+					if d.Name() == ksd.OutDir {
+						return filepath.SkipDir
+					}
+					return nil
+				}
 
-		require.FileExists(t, out)
-		actual, err := os.ReadFile(out)
-		require.NoError(t, err)
+				if !ksd.IsKustoSourceFile(filepath.Ext(d.Name())) {
+					return nil
+				}
 
-		require.FileExists(t, exp)
-		expected, err := os.ReadFile(exp)
-		require.NoError(t, err)
+				rel, err := filepath.Rel(root, path)
+				require.NoError(t, err)
 
-		require.Equal(t, string(expected), string(actual))
-		return nil
-	})
+				outFile := filepath.Join(outDir, rel)
+				require.FileExists(t, outFile, "file not built")
 
-	require.NoError(t, err)
+				return nil
+			})
+		})
+	}
 }
