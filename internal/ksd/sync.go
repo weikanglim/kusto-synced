@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/Azure/azure-kusto-go/kusto"
@@ -79,19 +80,29 @@ func newKustoClient(
 		connection = connection.WithAadAppKey(
 			cred.ClientId, cred.ClientSecret, cred.TenantId)
 	} else {
+		forceInteractive := false
+		forceAuthEnv, has := os.LookupEnv("KSD_FORCE_INTERACTIVE_AUTH")
+		if has {
+			parsed, err := strconv.ParseBool(forceAuthEnv)
+			if err != nil {
+				return nil, fmt.Errorf(
+					"invalid value for KSD_FORCE_INTERACTIVE_AUTH: '%s'. expected truthy value: 1, true, TRUE, 0, false, FALSE", forceAuthEnv)
+			}
+			forceInteractive = parsed
+		}
 		// first, verify if azure default credential is available
 		credAvailable, err := verifyDefaultAzureCredential(cred)
 		if err != nil {
 			log.Printf("auth: enabling interactive logon, default credential not available with error: %v", err)
 		}
 
-		if credAvailable {
+		if forceInteractive || !credAvailable {
+			log.Println("auth: using interactive logon")
+			connection = connection.WithInteractiveLogin(cred.TenantId)
+		} else {
 			log.Println("auth: using default credential")
 			connection.AuthorityId = cred.TenantId
 			connection = connection.WithDefaultAzureCredential()
-		} else {
-			log.Println("auth: using interactive logon")
-			connection = connection.WithInteractiveLogin(cred.TenantId)
 		}
 	}
 

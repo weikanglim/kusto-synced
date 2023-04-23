@@ -22,20 +22,20 @@ func NewSyncCommand() *cobra.Command {
 
 	var syncCmd = &cobra.Command{
 		Use:   "sync <directory>",
-		Short: "Syncs Kusto tables and functions declarations stored in files to an Azure Data Explorer database",
+		Short: "Syncs Kusto function and table declarations to a targeted Azure Data Explorer database",
 		Args:  cobra.MaximumNArgs(1),
 		Long: heredoc.Doc(`
 		sync will automatically call 'ksd build' to ensure that all files are built into command scripts.
 		To skip this behavior, pass the '--from-out' flag specifying the output directory that is already built.
 
 		The command scripts, located in the 'kout' directory (which contain Kusto Management Commands) are loaded and executed against the target Kusto database.
-		This applies the functions and tables declaration stored locally to the database.`),
+		Thus, sync ends up syncing functions and tables declaration stored locally to the database.`),
 		Example: heredoc.Doc(`
-		# Sync to the Samples database, using either 'az' login credentials, or an interactive login
-		$ ksd sync --endpoint https://help.kusto.windows.net/Samples
+		# Sync either using 'az' login credentials, or an interactive login
+		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database>
 
-		# Sync to the Samples database, using an AAD application. Recommended for CI workflows.
-		$ ksd sync --endpoint https://help.kusto.windows.net/Samples --client-id <clientId> --client-secret <secretId> --tenantId <tenantId>
+		# Sync using aad app credentials. Recommended for CI workflows.
+		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database>--client-id <clientId> --client-secret <secretId> --tenantId <tenantId>
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := os.Getwd()

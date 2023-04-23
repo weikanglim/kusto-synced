@@ -1,10 +1,12 @@
-# Kusto Synced (ksd)
+# Kusto Synced (`ksd`)
 
-Kusto Synced (ksd) is a tool that simplifies and accelerates development for Kusto.
+Kusto Synced (`ksd`) is a tool that simplifies and accelerates development for Kusto.
 			
+`ksd` enables you to:
+
 - Store commonly used Kusto functions and tables in source control. Deploy the changes using a single command locally or on CI: `ksd sync`
-- Share reusable functions across teams. Functions are organized in the cluster database using the filesystem directory structure, with first-class support for adding documentation.
-- Write functions and test them in Azure Data Explorer. Once you're happy, simply store it in a file. ksd automatically transpiles your User-Defined function declarations to Stored Function declarations to be saved in the database.
+- Share reusable functions across teams. Functions are organized in the cluster database using the filesystem directory structure, with first-class support for adding function documentation.
+- Author source controlled functions with ease. Write functions and test them in Azure Data Explorer (or any of your favorite editors). Once you're happy, simply store it in a file. `ksd` automatically handles syncing these declarations to your Kusto database. (Learn more about this by running `ksd sync --help`)
 
 ## Walkthrough
 
@@ -41,7 +43,7 @@ ServiceRequests(ago(1d), now())
 
 Once you're happy, follow the next step.
 
-## Step 2: Save it somewhere in your machine / git repository
+## Step 2: Save it somewhere
 
 You may choose to organize related functions in folders that make sense for you. A general recommendation is to store functions under a `functions` folder, and table definitions under a `tables` folder. This can be under `src`, or a different folder depending on your repository.
 
@@ -60,7 +62,7 @@ If you have permissions to manage the target Kusto cluster and database, simply 
 
 ```bash
 cd src/functions
-ksd sync --cluster <cluster> --database <db>
+ksd sync --endpoint https://<my cluster>.kusto.windows.net/<my database>
 ```
 
 Otherwise, add the following task to your CI pipeline:
@@ -99,7 +101,11 @@ Also, notice that each function contains a docstring declaration that matches th
 
 It's that easy to write source controlled functions and tables. 
 
-Saving Kusto functions this way helps promotes sharing and creates reusable building blocks for you and your team (think documented libraries). If your or your team practises a gated peer-review process, that would also be an added benefit. Finally, when stored in source control, you are also able to retain revision tracking, search/refactor existing declarations when changed are made to your telemetry pipeline.
+## Why do this?
+
+1. Saving Kusto functions this way helps promotes sharing and creates reusable building blocks for you and your team (think documented libraries).
+2. If your or your team uses a gated checkin process, you can also enforce higher quality, consistent, and well-maintained function.
+3. Finally, when stored in source control, you are also able to retain revision tracking, search/refactor existing declarations when changed are made to your telemetry pipeline.
 
 ## Questions?
 
