@@ -1,0 +1,40 @@
+name: kusto-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    if: ${{ github.event_name == 'pull_request'' }}
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install ksd
+      run: curl <ksd>
+
+    - name: Build
+      run: ./ksd build
+
+  sync:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name != 'pull_request'' }}
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install ksd
+      run: curl <ksd>
+
+    - name: Sync
+      shell: bash
+      run: >
+        ./ksd sync
+        --endpoint $KUSTO_DB_ENDPOINT
+        --client-id $KUSTO_SYNC_APP_CLIENT_ID
+        --tenant-id $TENANT_ID
+        --client-secret $CLIENT_SECRET
+      env:
+        CLIENT_SECRET: ${{ secrets.KUSTO_SYNC_APP_CLIENT_SECRET }}

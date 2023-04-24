@@ -1,0 +1,5 @@
+// Basic log table
+let Log = datatable (
+    ['Timestamp']:datetime,
+    ['Message']:string)
+[]

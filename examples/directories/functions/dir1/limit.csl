@@ -1,0 +1,5 @@
+// Log with limit on entries returned
+let Limit = (number: int) {
+    Log
+    | top number
+}
