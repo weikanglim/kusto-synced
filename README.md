@@ -107,6 +107,8 @@ It's that easy to write source-controlled functions and tables.
 2. If your or your team uses a gated checkin process, you can also enforce higher quality, consistent, and well-maintained function.
 3. Finally, when stored in source control, you are also able to retain revision tracking, search/refactor existing declarations when changed are made to your telemetry pipeline.
 
-## Questions?
+## Wanting to know more?
 
-Check the [FAQ](./doc/faq.md). If your question is unanswered, search for existing issues on GitHub. Better yet, create one.
+1. Check the examples directory for example of project layouts, and a starter GitHub CI pipeline.
+2. Check the [FAQ](./doc/faq.md) for commonly asked questions.
+3. If you have an unanswered question, search for existing issues on GitHub. If none exists, create an issue to start a discussion.
