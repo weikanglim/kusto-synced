@@ -89,19 +89,19 @@ Azure DevOps:
 
 You should now be able to refresh your connection to the Azure Data Explorer, and see any new functions added:
 
-![]()
+![Azure Data Explorer synced functions](./doc/assets/synced-functions.png)
 
 Notice how the functions in the database is organized exactly how they are stored in source.
 
-![]()
+![Locally stored functions](./doc/assets/local-functions.png)
 
 Also, notice that each function contains a docstring declaration that matches the comments you saved about your function.
 
-![]()
+![Docstring of functions](./doc/assets/function-docString.png)
 
-It's that easy to write source controlled functions and tables. 
+It's that easy to write source-controlled functions and tables. 
 
-## Why do this?
+## Benefits
 
 1. Saving Kusto functions this way helps promotes sharing and creates reusable building blocks for you and your team (think documented libraries).
 2. If your or your team uses a gated checkin process, you can also enforce higher quality, consistent, and well-maintained function.
@@ -109,6 +109,4 @@ It's that easy to write source controlled functions and tables.
 
 ## Questions?
 
-Create or search existing issues on GitHub
-
-### 
+Check the [FAQ](./doc/faq.md). If your question is unanswered, search for existing issues on GitHub. Better yet, create one.

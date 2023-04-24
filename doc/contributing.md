@@ -33,8 +33,47 @@ The build will produce a `ksd` or `ksd.exe` (windows) binary from your local sou
 
 To run live tests, environment variables need to be set.
 
+## With user account auth
+
 Bash:
-`KSD_TEST_DEFAULT_AUTH=1 KSD_TEST_ENDPOINT='https://kvc2qknmzpybns891s6n1e.southcentralus.kusto.windows.net/MyDatabase' go test ./...`
 
+```bash
+export KSD_TEST_DEFAULT_AUTH=1
+export KSD_TEST_ENDPOINT='https://<cluster>.southcentralus.kusto.windows.net/<database>'
+go test ./...`
+```
 
+PowerShell:
 
+```powershell
+$env:KSD_TEST_DEFAULT_AUTH=1
+$env:KSD_TEST_ENDPOINT='https://<cluster>.southcentralus.kusto.windows.net/<database>'
+go test ./...
+```
+
+## With service principal
+
+Bash:
+
+```bash
+export KSD_TEST_CLIENT_ID='<client-id>'
+export KSD_TEST_CLIENT_SECRET='<client-secret>'
+export KSD_TEST_TENANT_ID='<tenant-id>'
+export KSD_TEST_ENDPOINT='https://<cluster>.southcentralus.kusto.windows.net/<database>'
+go test ./...`
+```
+
+PowerShell:
+
+```powershell
+$env:KSD_TEST_DEFAULT_AUTH=1
+$env:KSD_TEST_CLIENT_ID='<client-id>'
+$env:KSD_TEST_CLIENT_SECRET='<client-secret>'
+$env:KSD_TEST_TENANT_ID='<tenant-id>'
+$env:KSD_TEST_ENDPOINT='https://<cluster>.southcentralus.kusto.windows.net/<database>'
+go test ./...
+```
+
+## Submitting the change
+
+Once you're happy with the changes locally, simply submit a pull request with the changes. Code owners will review the change, approve and merge it when ready.
