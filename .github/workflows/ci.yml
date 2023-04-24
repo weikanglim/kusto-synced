@@ -12,8 +12,13 @@ jobs:
     strategy:
       matrix:
           os: [ubuntu-latest, windows-latest]
-          binary: [ksd, ksd.exe]
-          artifact: [ksd.linux, ksd.windows]
+          include:
+          - os: ubuntu-latest
+            binary: ksd
+            artifact: ksd.linux
+          - os: windows-latest
+            binary: ksd.exe
+            artifact: ksd.windows
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
