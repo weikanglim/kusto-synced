@@ -1,3 +1,15 @@
+# This starter covers CI/CD for most use-cases.
+# CI - On PR, run `ksd build` to ensure validity.
+# CD - On push OR manual queuing, run `ksd sync` to deploy the changes.
+
+# The following action variables should be set:
+# - KUSTO_DB_ENDPOINT
+# - KUSTO_SYNC_APP_CLIENT_ID
+# - TENANT_ID
+
+# The following action secrets should be set:
+# - KUSTO_SYNC_APP_CLIENT_SECRET
+
 name: kusto-ci
 
 on:
