@@ -1,0 +1,45 @@
+name: ksd-ci
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    strategy:
+      matrix:
+          os: [ubuntu-latest, windows-latest]
+          binary: [ksd, ksd.exe]
+          artifact: [ksd.linux, ksd.windows]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version: 1.20
+
+      - name: Build
+        run: go build -v ./...
+
+      - name: Test (PR)
+        if: ${{ github.event_name == 'pull_request' }}
+        run: go test -v ./...
+
+      - name: Test (Full)
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+        run: go test -v ./...
+        env:
+          KSD_TEST_CLIENT_SECRET: ${{ secrets.KSD_TEST_CLIENT_SECRET }}
+      
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        if: ${{ github.event_name == 'workflow_dispatch' }}
+        with:
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.binary }}
