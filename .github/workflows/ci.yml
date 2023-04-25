@@ -46,10 +46,11 @@ jobs:
       
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v3 
-     
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
         with:
           name: ${{ matrix.artifact }}
           path: |
