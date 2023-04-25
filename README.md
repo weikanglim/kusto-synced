@@ -113,6 +113,6 @@ It's that easy to write source-controlled functions and tables.
 
 ## Wanting to know more?
 
-1. Check the examples directory for example of project layouts, and a starter GitHub CI pipeline.
+1. Check the [examples](./examples/) directory for example of project layouts, and a starter GitHub CI pipeline.
 2. Check the [FAQ](./docs/faq.md) for commonly asked questions.
 3. If you have an unanswered question, search for existing issues on GitHub. If none exists, create an issue to start a discussion.
