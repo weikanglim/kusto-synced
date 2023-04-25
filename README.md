@@ -1,5 +1,7 @@
 # Kusto Synced (`ksd`)
 
+[![codecov](https://codecov.io/github/weikanglim/kusto-synced/branch/main/graph/badge.svg?token=JSEB4LR7HP)](https://codecov.io/github/weikanglim/kusto-synced)
+
 Kusto Synced (`ksd`) is a tool that simplifies and accelerates development for Kusto.
 			
 `ksd` enables you to:
