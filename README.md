@@ -91,15 +91,15 @@ Azure DevOps:
 
 You should now be able to refresh your connection to the Azure Data Explorer, and see any new functions added:
 
-![Azure Data Explorer synced functions](./doc/assets/synced-functions.png)
+![Azure Data Explorer synced functions](./docs/assets/synced-functions.png)
 
 Notice how the functions in the database is organized exactly how they are stored in source.
 
-![Locally stored functions](./doc/assets/local-functions.png)
+![Locally stored functions](./docs/assets/local-functions.png)
 
 Also, notice that each function contains a docstring declaration that matches the comments you saved about your function.
 
-![Docstring of functions](./doc/assets/function-docString.png)
+![Docstring of functions](./docs/assets/function-docString.png)
 
 It's that easy to write source-controlled functions and tables. 
 
@@ -112,5 +112,5 @@ It's that easy to write source-controlled functions and tables.
 ## Wanting to know more?
 
 1. Check the examples directory for example of project layouts, and a starter GitHub CI pipeline.
-2. Check the [FAQ](./doc/faq.md) for commonly asked questions.
+2. Check the [FAQ](./docs/faq.md) for commonly asked questions.
 3. If you have an unanswered question, search for existing issues on GitHub. If none exists, create an issue to start a discussion.
