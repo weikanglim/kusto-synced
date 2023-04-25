@@ -118,6 +118,8 @@ func write(
 	writer io.Writer,
 	decl *declaration,
 	folder string) error {
+	// ensure all folders are forward slashes
+	folder = strings.ReplaceAll(folder, "\\", "/")
 	var err error
 	switch decl.declType {
 	case functionType:
