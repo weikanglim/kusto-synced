@@ -67,24 +67,26 @@ cd src/functions
 ksd sync --endpoint https://<my cluster>.kusto.windows.net/<my database>
 ```
 
-Otherwise, add the following task to your CI pipeline:
+Otherwise, add the following task to your CI pipeline (assuming linux):
 
 GitHub Actions:
 
 ```yaml
 - run: |
-    curl <gh url>
-    ksd sync src/functions
-    ksd sync src/tables
+    wget https://github.com/weikanglim/kusto-synced/releases/latest/download/ksd_linux_x86_64.tar.gz
+    tar -xzf ksd_linux_x86_64.tar.gz
+    ./ksd sync src/functions
+    ./ksd sync src/tables
 ```
 
 Azure DevOps:
 
 ```yaml
 - bash: |
-    curl <gh url>
-    ksd sync src/functions
-    ksd sync src/tables
+    wget https://github.com/weikanglim/kusto-synced/releases/latest/download/ksd_linux_x86_64.tar.gz
+    tar -xzf ksd_linux_x86_64.tar.gz
+    ./ksd sync src/functions
+    ./ksd sync src/tables
 ```
 
 ## Step 4: Examine new functions in the cluster

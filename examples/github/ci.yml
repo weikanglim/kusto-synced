@@ -38,7 +38,10 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: Install ksd
-      run: curl <ksd>
+      shell: bash
+      run: |
+        wget https://github.com/weikanglim/kusto-synced/releases/latest/download/ksd_linux_x86_64.tar.gz
+        tar -xzf ksd_linux_x86_64.tar.gz
 
     - name: Sync
       shell: bash
