@@ -136,6 +136,8 @@ func Sync(
 
 	ctx := context.Background()
 	root = filepath.Clean(root)
+	root = filepath.Clean(root)
+
 	files, err := kslFiles(root)
 	if err != nil {
 		return err
