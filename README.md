@@ -47,15 +47,16 @@ Once you're happy, follow the next step.
 
 ## Step 2: Save it somewhere
 
-You may choose to organize related functions in folders that make sense for you. A general recommendation is to store functions under a `functions` folder, and table definitions under a `tables` folder. This can be under `src`, or a different folder depending on your repository.
+You may choose to organize related functions in folders that make sense for you. A general recommendation is to store functions under a `functions` folder, and table definitions under a `tables` folder. This can be simply under your repository folder, under `src`, or any folder of your choosing.
 
-For this example, let's assume that you have the following setup, and saved your file as `ServiceRequest.csl` in `src/functions`.
+For this example, let's assume that you have the following setup, and saved your file as `ServiceRequest.csl` in `functions`.
 
 ```
 - <REPO>
-  - src
-    - functions
-      - ServiceRequest.csl
+  - functions
+    - ServiceRequest.csl
+  - tables
+    - RequestTable.csl
 ```
 
 ## Step 3: Sync your Kusto functions
@@ -63,8 +64,7 @@ For this example, let's assume that you have the following setup, and saved your
 If you have permissions to manage the target Kusto cluster and database, simply run `ksd sync` in your `functions` or `tables` folder.
 
 ```bash
-cd src/functions
-ksd sync --endpoint https://<my cluster>.kusto.windows.net/<my database>
+ksd sync functions --endpoint https://<my cluster>.kusto.windows.net/<my database>
 ```
 
 Otherwise, add the following task to your CI pipeline (assuming linux):
@@ -75,8 +75,8 @@ GitHub Actions:
 - run: |
     wget https://github.com/weikanglim/kusto-synced/releases/latest/download/ksd_linux_x86_64.tar.gz
     tar -xzf ksd_linux_x86_64.tar.gz
-    ./ksd sync src/functions
-    ./ksd sync src/tables
+    ./ksd sync tables
+    ./ksd sync functions
 ```
 
 Azure DevOps:
@@ -85,8 +85,8 @@ Azure DevOps:
 - bash: |
     wget https://github.com/weikanglim/kusto-synced/releases/latest/download/ksd_linux_x86_64.tar.gz
     tar -xzf ksd_linux_x86_64.tar.gz
-    ./ksd sync src/functions
-    ./ksd sync src/tables
+    ./ksd sync tables
+    ./ksd sync functions
 ```
 
 ## Step 4: Examine new functions in the cluster
