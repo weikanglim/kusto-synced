@@ -26,24 +26,31 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
-          go-version: 1.20
+          go-version: "1.20"
 
       - name: Build
         run: go build
 
+      - name: Install gotestsum
+        run: go install gotest.tools/gotestsum@latest
+
       - name: Test (PR)
         if: ${{ github.event_name == 'pull_request' }}
-        run: go test -v ./...
+        run: gotestsum --format testname -- -race -coverprofile='coverage.txt' -covermode=atomic ./...
 
       - name: Test (Full)
         if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
-        run: go test -v ./...
+        run: gotestsum --format testname -- -race -coverprofile='coverage.txt' -covermode=atomic ./...
         env:
           KSD_TEST_CLIENT_SECRET: ${{ secrets.KSD_TEST_CLIENT_SECRET }}
       
+      - name: Upload coverage reports to Codecov
+        uses: codecov/codecov-action@v3 
+        if: ${{ matrix.os == 'ubuntu-latest' }}
+
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
-        if: ${{ github.event_name == 'workflow_dispatch' }}
+        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
         with:
           name: ${{ matrix.artifact }}
           path: |

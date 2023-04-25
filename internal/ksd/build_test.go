@@ -3,6 +3,7 @@ package ksd
 import (
 	"embed"
 	"fmt"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -37,7 +38,7 @@ func testBuild(t *testing.T, root string, prefix string) {
 
 		e := e
 		t.Run(e.Name(), func(t *testing.T) {
-			bytes, err := testData.ReadFile(filepath.Join(root, e.Name()))
+			bytes, err := testData.ReadFile(path.Join(root, e.Name()))
 			require.NoError(t, err)
 			reader := strings.NewReader(string(bytes))
 
