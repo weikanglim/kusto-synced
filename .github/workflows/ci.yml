@@ -36,11 +36,27 @@ jobs:
 
       - name: Test (PR)
         if: ${{ github.event_name == 'pull_request' }}
-        run: gotestsum --format testname -- -race -coverprofile='coverage.txt' -covermode=atomic ./...
+        run: >
+          gotestsum
+          --format testname
+          --
+          -race
+          -coverprofile='coverage.txt'
+          -covermode=atomic
+          -coverpkg='./...'
+          ./...
 
       - name: Test (Full)
         if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
-        run: gotestsum --format testname -- -race -coverprofile='coverage.txt' -covermode=atomic ./...
+        run: >
+          gotestsum
+          --format testname
+          --
+          -race
+          -coverprofile='coverage.txt'
+          -covermode=atomic
+          -coverpkg='./...'
+          ./...
         env:
           KSD_TEST_CLIENT_SECRET: ${{ secrets.KSD_TEST_CLIENT_SECRET }}
           KSD_TEST_CLIENT_ID: ${{ vars.KSD_TEST_CLIENT_ID }}
