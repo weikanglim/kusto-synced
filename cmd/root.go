@@ -17,7 +17,7 @@ func NewRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:          "ksd",
 		SilenceUsage: true,
-		Short:        "A tool that simplifies and accelerates development for Kusto.",
+		Short:        "ksd hlpes simplifies and accelerates development for Kusto.",
 		Example: heredoc.Doc(`
 		# sync files under current directory
 		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database>

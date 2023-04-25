@@ -1,14 +1,14 @@
-package examples
+package test
 
 import (
 	"io/fs"
-	"ksd/internal/ksd"
 	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/weikanglim/ksd/internal/ksd"
 )
 
 func TestBuild_Errors(t *testing.T) {

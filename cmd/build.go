@@ -3,12 +3,12 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"ksd/internal/ksd"
 	"os"
 	"path/filepath"
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+	"github.com/weikanglim/ksd/internal/ksd"
 )
 
 func NewBuildCommand() *cobra.Command {

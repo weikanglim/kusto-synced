@@ -1,4 +1,4 @@
-module ksd
+module github.com/weikanglim/ksd
 
 go 1.20
 

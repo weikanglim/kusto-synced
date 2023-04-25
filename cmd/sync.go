@@ -3,7 +3,6 @@ package cmd
 import (
 	"errors"
 	"fmt"
-	"ksd/internal/ksd"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -11,6 +10,7 @@ import (
 
 	"github.com/MakeNowJust/heredoc/v2"
 	"github.com/spf13/cobra"
+	"github.com/weikanglim/ksd/internal/ksd"
 )
 
 func NewSyncCommand() *cobra.Command {

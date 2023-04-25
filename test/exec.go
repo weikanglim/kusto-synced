@@ -1,11 +1,11 @@
-package examples
+package test
 
 import (
-	"ksd/cmd"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"github.com/weikanglim/ksd/cmd"
 )
 
 type cmdResult struct {

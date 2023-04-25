@@ -4,8 +4,9 @@ Copyright © 2023 Wei Lim
 package main
 
 import (
-	"ksd/cmd"
 	"os"
+
+	"github.com/weikanglim/ksd/cmd"
 )
 
 func main() {
