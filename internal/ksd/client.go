@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/Azure/azure-kusto-go/kusto"
+
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore"
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/runtime"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
