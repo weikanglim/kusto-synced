@@ -23,7 +23,7 @@ func NewSyncCommand() *cobra.Command {
 	var syncCmd = &cobra.Command{
 		Use:   "sync <directory>",
 		Short: "Syncs Kusto function and table declarations to a targeted Azure Data Explorer database",
-		Args:  cobra.ExactArgs(1),
+		Args:  cobra.MaximumNArgs(1),
 		Long: heredoc.Doc(`
 		sync will automatically call 'ksd build' to ensure that all files are built into command scripts.
 		To skip this behavior, pass the '--from-out' flag specifying the output directory that is already built.
