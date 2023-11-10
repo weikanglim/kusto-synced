@@ -34,12 +34,12 @@ func TestSync_Errors(t *testing.T) {
 		{
 			"ClientAuth_MissingSecretAndTenant",
 			[]string{"sync", "--client-id", "some-id", "--endpoint", anyEndpoint},
-			"`--client-secret` must be set",
+			"`--tenant-id` must be set when `--client-id` is provided",
 		},
 		{
 			"ClientAuth_MissingSecret",
 			[]string{"sync", "--client-id", "some-id", "--tenant-id", "some-tenant", "--endpoint", anyEndpoint},
-			"`--client-secret` must be set",
+			"`--client-secret` or `--credential-provider` must be set when `--client-id` is provided",
 		},
 		{
 			"ClientAuth_MissingTenantId",
@@ -79,7 +79,7 @@ func TestSync_Live(t *testing.T) {
 	}
 
 	syncArgs := []string{"sync"}
-	syncArgs = append(syncArgs, argsFromConfig(cfg)...)
+	syncArgs = append(syncArgs, argsFromConfig(cfg, false)...)
 
 	tests := []struct {
 		name   string
@@ -121,23 +121,32 @@ func TestSync_Live(t *testing.T) {
 	}
 }
 
-func argsFromConfig(cfg clientConfig) []string {
+func argsFromConfig(cfg clientConfig, useSecret bool) []string {
 	if cfg.defaultAuth {
 		return []string{
 			"--endpoint",
 			cfg.endpoint,
 		}
 	} else {
-		return []string{
+		res := []string{
 			"--client-id",
 			cfg.clientId,
-			"--client-secret",
-			cfg.clientSecret,
 			"--tenant-id",
 			cfg.tenantId,
 			"--endpoint",
 			cfg.endpoint,
 		}
+		if useSecret {
+			res = append(res,
+				"--client-secret",
+				cfg.clientSecret)
+		} else {
+			res = append(res,
+				"--credential-provider",
+				"github")
+		}
+
+		return res
 	}
 }
 
