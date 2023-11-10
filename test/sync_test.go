@@ -18,7 +18,7 @@ func TestSync_Errors(t *testing.T) {
 	}{
 		{
 			"MissingDatabase",
-			[]string{"sync", "--endpoint", "https://examples.kusto.windows.net"},
+			[]string{"sync", "testdata/src", "--endpoint", "https://examples.kusto.windows.net"},
 			"endpoint must target a database",
 		},
 		{
@@ -90,18 +90,18 @@ func TestSync_Live(t *testing.T) {
 		{
 			"FromCurrentDirectory",
 			syncArgs,
-			"testdata",
+			"testdata/src",
 			nil,
 		},
 		{
 			"DirectorySpecified",
-			append(syncArgs, "testdata"),
+			append(syncArgs, "testdata/src"),
 			"",
 			nil,
 		},
 		{
 			"FromOut",
-			append(syncArgs, "--from-out", "testdata/kout"),
+			append(syncArgs, "--from-out", "testdata/src/kout"),
 			"",
 			func(t *testing.T, r cmdResult) {
 				// Building should be skipped
