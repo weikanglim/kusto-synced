@@ -13,13 +13,13 @@ import (
 	"github.com/weikanglim/ksd/internal/ksd"
 )
 
+var clientId string
+var clientSecret string
+var tenantId string
+var endpoint string
+
 func NewSyncCommand() *cobra.Command {
 	var fromOut string
-	var clientId string
-	var clientSecret string
-	var tenantId string
-	var endpoint string
-
 	var syncCmd = &cobra.Command{
 		Use:   "sync <directory>",
 		Short: "Syncs Kusto function and table declarations to a targeted Azure Data Explorer database",
@@ -67,27 +67,9 @@ func NewSyncCommand() *cobra.Command {
 				return errors.New("missing `--endpoint`. Set this to a Azure Data Explorer database endpoint, i.e. https://samples.kusto.windows.net/MyDatabase")
 			}
 
-			credOptions := ksd.CredentialOptions{}
-			if clientId != "" {
-				if clientSecret == "" {
-					return errors.New("`--client-secret` must be set when `--client-id` is provided")
-				}
-
-				if tenantId == "" {
-					return errors.New("`--tenant-id` must be set when `--client-id` is provided")
-				}
-
-				credOptions.ClientId = clientId
-				credOptions.ClientSecret = clientSecret
-				credOptions.TenantId = tenantId
-			} else {
-				if clientSecret != "" {
-					return errors.New("`--client-id` must be set when `--client-secret` is provided")
-				}
-
-				if tenantId != "" {
-					return errors.New("`--client-id` must be set when `--tenant-id` is provided")
-				}
+			credOptions, err := GetCredentialOptionsFromFlags()
+			if err != nil {
+				return err
 			}
 
 			var outRoot string

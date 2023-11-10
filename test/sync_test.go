@@ -18,7 +18,7 @@ func TestSync_Errors(t *testing.T) {
 	}{
 		{
 			"MissingDatabase",
-			[]string{"sync", "--endpoint", "https://examples.kusto.windows.net"},
+			[]string{"sync", "testdata/src", "--endpoint", "https://examples.kusto.windows.net"},
 			"endpoint must target a database",
 		},
 		{
@@ -90,18 +90,18 @@ func TestSync_Live(t *testing.T) {
 		{
 			"FromCurrentDirectory",
 			syncArgs,
-			"testdata",
+			"testdata/src",
 			nil,
 		},
 		{
 			"DirectorySpecified",
-			append(syncArgs, "testdata"),
+			append(syncArgs, "testdata/src"),
 			"",
 			nil,
 		},
 		{
 			"FromOut",
-			append(syncArgs, "--from-out", "testdata/kout"),
+			append(syncArgs, "--from-out", "testdata/src/kout"),
 			"",
 			func(t *testing.T, r cmdResult) {
 				// Building should be skipped
@@ -121,7 +121,7 @@ func TestSync_Live(t *testing.T) {
 	}
 }
 
-func argsFromConfig(cfg syncConfig) []string {
+func argsFromConfig(cfg clientConfig) []string {
 	if cfg.defaultAuth {
 		return []string{
 			"--endpoint",
@@ -141,7 +141,7 @@ func argsFromConfig(cfg syncConfig) []string {
 	}
 }
 
-type syncConfig struct {
+type clientConfig struct {
 	// if true, the default auth flags are passed
 	defaultAuth bool
 
@@ -151,15 +151,15 @@ type syncConfig struct {
 	endpoint     string
 }
 
-func getLiveConfig() (syncConfig, error) {
+func getLiveConfig() (clientConfig, error) {
 	endpoint := os.Getenv("KSD_TEST_ENDPOINT")
 
 	if os.Getenv("KSD_TEST_DEFAULT_AUTH") != "" {
 		if endpoint == "" {
-			return syncConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_ENDPOINT")
+			return clientConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_ENDPOINT")
 		}
 
-		return syncConfig{
+		return clientConfig{
 			defaultAuth: true,
 			endpoint:    endpoint,
 		}, nil
@@ -169,22 +169,22 @@ func getLiveConfig() (syncConfig, error) {
 	tenantId := os.Getenv("KSD_TEST_TENANT_ID")
 
 	if clientId == "" {
-		return syncConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_CLIENT_ID")
+		return clientConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_CLIENT_ID")
 	}
 
 	if clientSecret == "" {
-		return syncConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_CLIENT_SECRET")
+		return clientConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_CLIENT_SECRET")
 	}
 
 	if tenantId == "" {
-		return syncConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_TENANT_ID")
+		return clientConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_TENANT_ID")
 	}
 
 	if endpoint == "" {
-		return syncConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_ENDPOINT")
+		return clientConfig{}, fmt.Errorf("skipped due to missing KSD_TEST_ENDPOINT")
 	}
 
-	return syncConfig{
+	return clientConfig{
 		clientId:     clientId,
 		clientSecret: clientSecret,
 		tenantId:     tenantId,

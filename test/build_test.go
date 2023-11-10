@@ -40,27 +40,31 @@ func TestBuild(t *testing.T) {
 	}{
 		{
 			"Functions",
-			[]string{"build", "testdata/functions"},
+			[]string{"build", "testdata/src/functions"},
 			"",
 		},
 		{
 			"Tables",
-			[]string{"build", "testdata/tables"},
+			[]string{"build", "testdata/src/tables"},
 			"",
 		},
 		{
 			"All",
-			[]string{"build", "testdata"},
+			[]string{"build", "testdata/src"},
 			"",
 		},
 		{
 			"All_WorkingDirectory",
 			[]string{"build"},
-			"testdata",
+			"testdata/src",
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.chdir != "" {
+				Chdir(t, tt.chdir)
+			}
+
 			root, err := os.Getwd()
 			require.NoError(t, err)
 			if len(tt.args) > 1 {
@@ -71,6 +75,7 @@ func TestBuild(t *testing.T) {
 					}
 				}
 			}
+
 			res := executeCmd(tt.args)
 			require.NoError(t, res.Err)
 
