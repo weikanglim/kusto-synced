@@ -17,7 +17,7 @@ func NewRunCmd() *cobra.Command {
 	var runCmd = &cobra.Command{
 		Use:   "run <file>",
 		Short: "Runs a script file.",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Long: heredoc.Doc(`
 			Run executes the script file against a Kusto database.
 			`),

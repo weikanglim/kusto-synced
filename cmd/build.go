@@ -15,7 +15,7 @@ func NewBuildCommand() *cobra.Command {
 	var buildCmd = &cobra.Command{
 		Use:   "build <directory>",
 		Short: "Builds stored Kusto functions and tables into command scripts suitable for deployment.",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Long: heredoc.Doc(`
 			Build transpiles all Kusto declarative file declarations under the current directory,
 			into command scripts under the 'kout' directory relative to the current directory.
