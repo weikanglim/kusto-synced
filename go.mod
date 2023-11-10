@@ -8,6 +8,7 @@ require (
 	github.com/Azure/azure-sdk-for-go/sdk/azidentity v1.3.1
 	github.com/MakeNowJust/heredoc/v2 v2.0.1
 	github.com/bradleyjkemp/cupaloy/v2 v2.8.0
+	github.com/joho/godotenv v1.5.1
 	github.com/spf13/cobra v1.6.1
 	github.com/stretchr/testify v1.8.4
 )

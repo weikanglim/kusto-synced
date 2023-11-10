@@ -5,6 +5,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 )
 
@@ -158,6 +159,10 @@ type clientConfig struct {
 	clientSecret string
 	tenantId     string
 	endpoint     string
+}
+
+func init() {
+	_ = godotenv.Load(".env")
 }
 
 func getLiveConfig() (clientConfig, error) {
