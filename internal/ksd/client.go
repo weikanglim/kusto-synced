@@ -59,9 +59,11 @@ func parseEndpoint(endpoint string) (connection, error) {
 	}
 
 	db := strings.TrimPrefix(endpointUrl.Path, "/")
+	endpointUrl.Path = ""
+
 	return connection{
 		db:       db,
-		endpoint: endpoint,
+		endpoint: endpointUrl.String(),
 	}, nil
 }
 
