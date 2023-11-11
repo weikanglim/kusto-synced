@@ -40,20 +40,7 @@ jobs:
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
-      - name: Test (PR)
-        if: ${{ github.event_name == 'pull_request' }}
-        run: >
-          gotestsum
-          --format testname
-          --
-          -race
-          -coverprofile='coverage.txt'
-          -covermode=atomic
-          -coverpkg='./...'
-          ./...
-
-      - name: Test (Full)
-        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+      - name: Test
         run: >
           gotestsum
           --format testname
