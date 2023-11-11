@@ -1,3 +1,0 @@
-[submodule "submodule/Azure/azure-kusto-go"]
-	path = submodule/Azure/azure-kusto-go
-	url = https://github.com/weikanglim/azure-kusto-go
