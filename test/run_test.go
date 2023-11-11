@@ -14,7 +14,7 @@ func TestRun_Live(t *testing.T) {
 	}
 
 	runArgs := []string{"run"}
-	runArgs = append(runArgs, argsFromConfig(cfg)...)
+	runArgs = append(runArgs, argsFromConfig(cfg, true)...)
 
 	tests := []struct {
 		name   string

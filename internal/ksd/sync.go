@@ -2,116 +2,18 @@ package ksd
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io/fs"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
-	"strconv"
-	"strings"
 
-	"github.com/Azure/azure-kusto-go/kusto"
 	"github.com/Azure/azure-kusto-go/kusto/kql"
 
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 )
-
-// Credential to use to connect to a Kusto database.
-// When set to the default empty struct,
-// DefaultAzureCredential will be used, which typically
-// relies on authentication from CLIs like `az`.
-type CredentialOptions struct {
-	// Authenticate using client ID.
-	ClientId string
-	// Tenant ID for authentication.
-	TenantId string
-	// Client secret.
-	ClientSecret string
-}
-
-type kustoClient interface {
-	Mgmt(ctx context.Context, db string, query kusto.Statement, options ...kusto.MgmtOption) (*kusto.RowIterator, error)
-	Close() error
-}
-
-type connection struct {
-	endpoint string
-	db       string
-}
-
-func parseEndpoint(endpoint string) (connection, error) {
-	endpointUrl, err := url.Parse(endpoint)
-	if err != nil {
-		return connection{}, fmt.Errorf("invalid --endpoint: %w", err)
-	}
-
-	if endpointUrl.Path == "" {
-		return connection{}, fmt.Errorf(
-			"endpoint must target a database, and not a cluster. Does the endpoint end with the database name?")
-	}
-
-	db := strings.TrimPrefix(endpointUrl.Path, "/")
-	return connection{
-		db:       db,
-		endpoint: endpoint,
-	}, nil
-}
-
-// newKustoClient creates a kusto client using the specified
-// endpoint and credentials.
-func newKustoClient(
-	endpoint string,
-	cred CredentialOptions,
-	transport *http.Client) (kustoClient, error) {
-	connection := kusto.NewConnectionStringBuilder(endpoint)
-	if cred.ClientId != "" {
-		if cred.ClientSecret == "" {
-			return nil, errors.New("client secret must be provided")
-		}
-
-		if cred.TenantId == "" {
-			return nil, errors.New("tenant id must be provided")
-		}
-
-		connection = connection.WithAadAppKey(
-			cred.ClientId, cred.ClientSecret, cred.TenantId)
-	} else {
-		forceInteractive := false
-		forceAuthEnv, has := os.LookupEnv("KSD_FORCE_INTERACTIVE_AUTH")
-		if has {
-			parsed, err := strconv.ParseBool(forceAuthEnv)
-			if err != nil {
-				return nil, fmt.Errorf(
-					"invalid value for KSD_FORCE_INTERACTIVE_AUTH: '%s'. expected truthy value: 1, true, TRUE, 0, false, FALSE", forceAuthEnv)
-			}
-			forceInteractive = parsed
-		}
-		// first, verify if azure default credential is available
-		credAvailable, err := verifyDefaultAzureCredential(cred)
-		if err != nil {
-			log.Printf("auth: enabling interactive logon, default credential not available with error: %v", err)
-		}
-
-		if forceInteractive || !credAvailable {
-			log.Println("auth: using interactive logon")
-			connection = connection.WithInteractiveLogin(cred.TenantId)
-		} else {
-			log.Println("auth: using default credential")
-			connection.AuthorityId = cred.TenantId
-			connection = connection.WithDefaultAzureCredential()
-		}
-	}
-
-	client, err := kusto.New(connection, kusto.WithHttpClient(transport))
-	if err != nil {
-		return nil, fmt.Errorf("creating kusto client: %w", err)
-	}
-	return client, nil
-}
 
 func Sync(
 	root string,

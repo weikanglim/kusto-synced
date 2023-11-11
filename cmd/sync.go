@@ -13,11 +13,6 @@ import (
 	"github.com/weikanglim/ksd/internal/ksd"
 )
 
-var clientId string
-var clientSecret string
-var tenantId string
-var endpoint string
-
 func NewSyncCommand() *cobra.Command {
 	var fromOut string
 	var syncCmd = &cobra.Command{
@@ -35,7 +30,10 @@ func NewSyncCommand() *cobra.Command {
 		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database>
 
 		# Sync using aad app credentials. Recommended for CI workflows.
-		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database>--client-id <clientId> --client-secret <secretId> --tenantId <tenantId>
+		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database> --client-id <clientId> --client-secret <secretId> --tenantId <tenantId>
+
+		# Sync using GitHub OIDC credentials. Recommended for CI workflows.
+		$ ksd sync --endpoint https://<cluster>.kusto.windows.net/<database> --client-id <clientId> --credential-provider github --tenantId <tenantId>
 		`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			root, err := os.Getwd()
@@ -116,6 +114,7 @@ func NewSyncCommand() *cobra.Command {
 	syncCmd.Flags().StringVar(&clientId, "client-id", "", "The ID of the application to authenticate with")
 	syncCmd.Flags().StringVar(&clientSecret, "client-secret", "", "The secret of the application to authenticate with")
 	syncCmd.Flags().StringVar(&tenantId, "tenant-id", "", "The tenant ID of the application to authenticate with")
+	syncCmd.Flags().StringVar(&credentialProvider, "credential-provider", "", "The credential provider to use instead of client-secret. Allowed values: github")
 
 	return syncCmd
 }

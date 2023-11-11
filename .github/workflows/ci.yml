@@ -7,6 +7,10 @@ on:
     branches: [ "main" ]
   workflow_dispatch:
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   ci:
     strategy:
@@ -22,6 +26,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v3
+        with:
+          submodules: true
 
       - name: Set up Go
         uses: actions/setup-go@v3
@@ -34,20 +40,7 @@ jobs:
       - name: Install gotestsum
         run: go install gotest.tools/gotestsum@latest
 
-      - name: Test (PR)
-        if: ${{ github.event_name == 'pull_request' }}
-        run: >
-          gotestsum
-          --format testname
-          --
-          -race
-          -coverprofile='coverage.txt'
-          -covermode=atomic
-          -coverpkg='./...'
-          ./...
-
-      - name: Test (Full)
-        if: ${{ github.event_name == 'workflow_dispatch' || github.event_name == 'push' }}
+      - name: Test
         run: >
           gotestsum
           --format testname

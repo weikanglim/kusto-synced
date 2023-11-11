@@ -23,7 +23,7 @@ func NewRunCmd() *cobra.Command {
 			`),
 		Example: heredoc.Doc(`
 			# Run a script file
-			$ ksd run ./script.ksl
+			$ ksd run ./script.ksl --endpoint https://<cluster>.kusto.windows.net/<database> 
 			`),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if endpoint == "" {
@@ -55,6 +55,7 @@ func NewRunCmd() *cobra.Command {
 	runCmd.Flags().StringVar(&clientId, "client-id", "", "The ID of the application to authenticate with")
 	runCmd.Flags().StringVar(&clientSecret, "client-secret", "", "The secret of the application to authenticate with")
 	runCmd.Flags().StringVar(&tenantId, "tenant-id", "", "The tenant ID of the application to authenticate with")
+	runCmd.Flags().StringVar(&credentialProvider, "credential-provider", "", "The credential provider to use instead of client-secret. Allowed values: github")
 
 	return runCmd
 }
